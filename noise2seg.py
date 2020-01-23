@@ -94,6 +94,18 @@ def main():
     for i in range(len(predicted_ap_images)):
         io.imsave(join(ap_path, 'mask' + str(i).zfill(3) + '.tif'), predicted_ap_images[i].astype(np.int16))
 
+    # use ap-threshold to compute SEG-scores
+    predicted_ap_seg_images, ap_seg_result = n2s_model.predict_label_masks(test_images, test_masks, ap_threshold,
+                                                                          measure=measure_seg())
+    print("SEG score over all test images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold),
+          ap_seg_result)
+
+    ap_seg_path = join(conf['basedir'], "SEG_AP-Threshold")
+    if not exists(ap_seg_path):
+        mkdir(ap_seg_path)
+    for i in range(len(predicted_ap_seg_images)):
+        io.imsave(join(ap_seg_path, 'mask' + str(i).zfill(3) + '.tif'), predicted_ap_seg_images[i].astype(np.int16))
+
     # compute SEG results
     seg_threshold = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_seg())
     predicted_seg_images, seg_result = n2s_model.predict_label_masks(test_images, test_masks, seg_threshold, measure=measure_seg())
@@ -109,6 +121,7 @@ def main():
         writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(['AP', precision_result])
         writer.writerow(['SEG', seg_result])
+        writer.writerow(['SEG_AP-Threshold', ap_seg_result])
 
 
 if __name__=="__main__":
