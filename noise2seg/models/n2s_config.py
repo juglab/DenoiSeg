@@ -7,10 +7,10 @@ from six import string_types
 
 
 # This class is a adapted version of csbdeep.models.config.py.
-class SegConfig(argparse.Namespace):
+class Noise2SegConfig(argparse.Namespace):
     """
-    Default configuration for a trainable segmentation (Seg) model.
-    This class is meant to be used with :class:`Seg`.
+    Default configuration for a trainable segmentation (Noise2Seg) model.
+    This class is meant to be used with :class:`Noise2Seg`.
 
     Parameters
     ----------
@@ -21,7 +21,7 @@ class SegConfig(argparse.Namespace):
 
     Example
     -------
-    >>> seg_config = SegConfig(X, unet_n_depth=3)
+    >>> n2s_config = Noise2SegConfig(X, unet_n_depth=3)
 
     Attributes
     ----------
@@ -51,113 +51,115 @@ class SegConfig(argparse.Namespace):
         Name of checkpoint file for model weights (only best are saved); set to ``None`` to disable. Default: ``weights_best.h5``
     train_reduce_lr : dict
         Parameter :class:`dict` of ReduceLROnPlateau_ callback; set to ``None`` to disable. Default: ``{'factor': 0.5, 'patience': 10}``
+    train_loss : str
+        Switch between seg- or noise2seg-loss; Default: ``noise2seg``
+    n2v_perc_pix : float
+        Percentage of pixel to manipulate per patch. Default: ``1.5``
+    n2v_patch_shape : tuple
+        Random patches of this shape are extracted from the given training data. Default: ``(64, 64) if n_dim==2 else (64, 64, 64)``
+    n2v_manipulator : str
+        Noise2Void pixel value manipulator. Default: ``uniform_withCP``
+    n2v_neighborhood_radius : int
+        Neighborhood radius for n2v_old manipulator. Default: ``5``
+    n2s_weight_seg : float
+        Weight for segmentation loss contribution to the noise2seg-loss: Default: ``1.0``
+    n2s_weight_denoise : float
+        Weight for denoising loss contribution to the noise2seg-loss: Default: ``1.0``
 
         .. _ReduceLROnPlateau: https://keras.io/callbacks/#reducelronplateau
     """
 
     def __init__(self, X, **kwargs):
         """See class docstring"""
-        assert X.size != 0
-        assert len(X.shape) == 4 or len(X.shape) == 5, "Only 'SZYXC' or 'SYXC' as dimensions is supported."
 
-        n_dim = len(X.shape) - 2
+        # X is empty if config is None
+        if  X.size != 0:
+            assert len(X.shape) == 4 or len(X.shape) == 5, "Only 'SZYXC' or 'SYXC' as dimensions is supported."
 
-        if n_dim == 2:
-            axes = 'SYXC'
-        elif n_dim == 3:
-            axes = 'SZYXC'
+            n_dim = len(X.shape) - 2
 
-        # parse and check axes
-        axes = axes_check_and_normalize(axes)
-        ax = axes_dict(axes)
-        ax = {a: (ax[a] is not None) for a in ax}
+            if n_dim == 2:
+                axes = 'SYXC'
+            elif n_dim == 3:
+                axes = 'SZYXC'
 
-        (ax['X'] and ax['Y']) or _raise(ValueError('lateral axes X and Y must be present.'))
-        not (ax['Z'] and ax['T']) or _raise(ValueError('using Z and T axes together not supported.'))
+            # parse and check axes
+            axes = axes_check_and_normalize(axes)
+            ax = axes_dict(axes)
+            ax = {a: (ax[a] is not None) for a in ax}
 
-        axes.startswith('S') or (not ax['S']) or _raise(ValueError('sample axis S must be first.'))
-        axes = axes.replace('S', '')  # remove sample axis if it exists
+            (ax['X'] and ax['Y']) or _raise(ValueError('lateral axes X and Y must be present.'))
+            not (ax['Z'] and ax['T']) or _raise(ValueError('using Z and T axes together not supported.'))
 
-        if backend_channels_last():
-            if ax['C']:
-                axes[-1] == 'C' or _raise(ValueError('channel axis must be last for backend (%s).' % K.backend()))
+            axes.startswith('S') or (not ax['S']) or _raise(ValueError('sample axis S must be first.'))
+            axes = axes.replace('S', '')  # remove sample axis if it exists
+
+            if backend_channels_last():
+                if ax['C']:
+                    axes[-1] == 'C' or _raise(ValueError('channel axis must be last for backend (%s).' % K.backend()))
+                else:
+                    axes += 'C'
             else:
-                axes += 'C'
-        else:
-            if ax['C']:
-                axes[0] == 'C' or _raise(ValueError('channel axis must be first for backend (%s).' % K.backend()))
+                if ax['C']:
+                    axes[0] == 'C' or _raise(ValueError('channel axis must be first for backend (%s).' % K.backend()))
+                else:
+                    axes = 'C' + axes
+
+            means, stds = [], []
+            for i in range(X.shape[-1]):
+                means.append(np.mean(X[..., i]))
+                stds.append(np.std(X[..., i]))
+
+            # normalization parameters
+            self.means = [str(el) for el in means]
+            self.stds = [str(el) for el in stds]
+            # directly set by parameters
+            self.n_dim = n_dim
+            self.axes = axes
+            # fixed parameters
+            self.n_channel_in = 1
+            self.n_channel_out = 4
+            self.train_loss = 'noise2seg'
+
+            # default config (can be overwritten by kwargs below)
+
+            self.unet_n_depth = 4
+            self.relative_weights = [1.0, 1.0, 5.0]
+            self.unet_kern_size = 3
+            self.unet_n_first = 32
+            self.unet_last_activation = 'linear'
+            self.probabilistic = False
+            self.unet_residual = False
+            if backend_channels_last():
+                self.unet_input_shape = self.n_dim * (None,) + (self.n_channel_in,)
             else:
-                axes = 'C' + axes
+                self.unet_input_shape = (self.n_channel_in,) + self.n_dim * (None,)
 
-        assert X.shape[-1] == 1
-        n_channel_in = 1
-        n_channel_out = 3
+            self.train_epochs = 200
+            self.train_steps_per_epoch = 400
+            self.train_learning_rate = 0.0004
+            self.train_batch_size = 128
+            self.train_tensorboard = False
+            self.train_checkpoint = 'weights_best.h5'
+            self.train_checkpoint_last  = 'weights_last.h5'
+            self.train_checkpoint_epoch = 'weights_now.h5'
+            self.train_reduce_lr = {'factor': 0.5, 'patience': 10}
+            self.batch_norm = True
+            self.n2v_perc_pix = 1.5
+            self.n2v_patch_shape = (64, 64) if self.n_dim == 2 else (64, 64, 64)
+            self.n2v_manipulator = 'uniform_withCP'
+            self.n2v_neighborhood_radius = 5
+            self.n2s_weight_seg = 1.0
+            self.n2s_weight_denoise = 1.0
 
-        # directly set by parameters
-        self.n_dim = n_dim
-        self.axes = axes
-        # fixed parameters
-        self.n_channel_in = n_channel_in
-        self.n_channel_out = n_channel_out
-        self.train_loss = 'seg'
-
-        # default config (can be overwritten by kwargs below)
-
-        self.unet_n_depth = 4
-        self.relative_weights = [1.0, 1.0, 5.0]
-        self.unet_kern_size = 3
-        self.unet_n_first = 32
-        self.unet_last_activation = 'linear'
-        self.probabilistic = False
-        self.unet_residual = False
-        if backend_channels_last():
-            self.unet_input_shape = self.n_dim * (None,) + (self.n_channel_in,)
-        else:
-            self.unet_input_shape = (self.n_channel_in,) + self.n_dim * (None,)
-
-        self.train_epochs = 200
-        self.train_steps_per_epoch = 400
-        self.train_learning_rate = 0.0004
-        self.train_batch_size = 128
-        self.train_tensorboard = False
-        self.train_checkpoint = 'weights_best.h5'
-        self.train_checkpoint_last  = 'weights_last.h5'
-        self.train_checkpoint_epoch = 'weights_now.h5'
-        self.train_reduce_lr = {'factor': 0.5, 'patience': 10}
-        self.batch_norm = True
-
-        # disallow setting 'n_dim' manually
-        try:
-            del kwargs['n_dim']
-            # warnings.warn("ignoring parameter 'n_dim'")
-        except:
-            pass
-        # disallow setting 'n_channel_in' manually
-        try:
-            del kwargs['n_channel_in']
-            # warnings.warn("ignoring parameter 'n_dim'")
-        except:
-            pass
-        # disallow setting 'n_channel_out' manually
-        try:
-            del kwargs['n_channel_out']
-            # warnings.warn("ignoring parameter 'n_dim'")
-        except:
-            pass
-        # disallow setting 'train_loss' manually
-        try:
-            del kwargs['train_loss']
-            # warnings.warn("ignoring parameter 'n_dim'")
-        except:
-            pass
         # disallow setting 'probabilistic' manually
         try:
-            del kwargs['probabilistic']
+            kwargs['probabilistic'] = False
         except:
             pass
         # disallow setting 'unet_residual' manually
         try:
-            del kwargs['unet_residual']
+            kwargs['unet_residual'] = False
         except:
             pass
 
@@ -187,10 +189,10 @@ class SegConfig(argparse.Namespace):
             ok['axes'] = True
         except:
             ok['axes'] = False
-        ok['n_channel_in'] = _is_int(self.n_channel_in, 1, 1)
-        ok['n_channel_out'] = _is_int(self.n_channel_out, 3, 3)
+        ok['n_channel_in'] = _is_int(self.n_channel_in, 1)
+        ok['n_channel_out'] = _is_int(self.n_channel_out, 4)
         ok['train_loss'] = (
-            (self.train_loss in ('seg'))
+            (self.train_loss in ('seg', 'noise2seg'))
         )
         ok['unet_n_depth'] = _is_int(self.unet_n_depth, 1)
         ok['relative_weights'] = isinstance(self.relative_weights, list) and len(self.relative_weights) == 3 and all(
@@ -215,6 +217,17 @@ class SegConfig(argparse.Namespace):
         ok['train_checkpoint'] = self.train_checkpoint is None or isinstance(self.train_checkpoint, string_types)
         ok['train_reduce_lr'] = self.train_reduce_lr is None or isinstance(self.train_reduce_lr, dict)
         ok['batch_norm'] = isinstance(self.batch_norm, bool)
+        ok['n2v_perc_pix'] = self.n2v_perc_pix > 0 and self.n2v_perc_pix <= 100
+        ok['n2v_patch_shape'] = (
+                isinstance(self.n2v_patch_shape, (list, tuple)) and
+                len(self.n2v_patch_shape) == self.n_dim and
+                all(d > 0 for d in self.n2v_patch_shape)
+        )
+        ok['n2v_manipulator'] = self.n2v_manipulator in ['normal_withoutCP', 'uniform_withCP', 'normal_additive',
+                                                         'normal_fitted', 'identity']
+        ok['n2v_neighborhood_radius'] = _is_int(self.n2v_neighborhood_radius, 0)
+        ok['n2s_weight_seg'] = isinstance(self.n2s_weight_seg, float) and self.n2s_weight_seg >= 0.0
+        ok['n2s_weight_denoise'] = isinstance(self.n2s_weight_denoise, float) and self.n2s_weight_denoise >= 0.0
 
         if return_invalid:
             return all(ok.values()), tuple(k for (k, v) in ok.items() if not v)
