@@ -22,3 +22,15 @@ examples/**/models/
 config.json
 
 /.project
+__MACOSX
+
+# Singularity image files
+*.simg
+singularity/user/*
+
+# Dolphin dir-stuff
+/.directory
+
+# Stuff
+*.csv
+*.hist
