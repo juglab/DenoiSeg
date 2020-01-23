@@ -1,23 +1,27 @@
 import datetime
+import warnings
 
 import numpy as np
 import tensorflow as tf
 from csbdeep.data import PadAndCropResizer
 from csbdeep.internals import nets
 from csbdeep.models import CARE
-from csbdeep.utils import _raise
+from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json, load_json
 from csbdeep.utils.six import Path
 from keras import backend as K
 from keras.callbacks import TerminateOnNaN
+from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
 
-from noise2seg.models import SegConfig
-from noise2seg.utils.compute_precision_threshold import compute_threshold, precision
-from noise2seg.internals.segmentation_loss import loss_seg
+from noise2seg.models import Noise2SegConfig
+from noise2seg.utils.compute_precision_threshold import compute_threshold
+from ..internals.N2S_DataWrapper import N2S_DataWrapper
+from noise2seg.internals.losses import loss_noise2seg, loss_seg
+from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 
 
-class Seg(CARE):
+class Noise2Seg(CARE):
     """The training scheme to train a standard 3-class segmentation network.
         Uses a convolutional neural network created by :func:`csbdeep.internals.nets.custom_unet`.
         Parameters
@@ -39,7 +43,7 @@ class Seg(CARE):
             Illegal arguments, including invalid configuration.
         Example
         -------
-        >>> model = Seg(config, 'my_model')
+        >>> model = Noise2Seg(config, 'my_model')
         Attributes
         ----------
         config : :class:`voidseg.models.seg_config`
@@ -54,7 +58,7 @@ class Seg(CARE):
 
     def __init__(self, config, name=None, basedir='.'):
         """See class docstring"""
-        config is None or isinstance(config, SegConfig) or _raise(ValueError('Invalid configuration: %s' % str(config)))
+        config is None or isinstance(config, Noise2SegConfig) or _raise(ValueError('Invalid configuration: %s' % str(config)))
         if config is not None and not config.is_valid():
             invalid_attr = config.is_valid(True)[1]
             raise ValueError('Invalid configuration attributes: ' + ', '.join(invalid_attr))
@@ -65,24 +69,29 @@ class Seg(CARE):
         self.config = config
         self.name = name if name is not None else datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.%f")
         self.basedir = Path(basedir) if basedir is not None else None
+
+        if config is not None:
+            # config was provided -> update before it is saved to disk
+            self._update_and_check_config()
         self._set_logdir()
+        if config is None:
+            # config was loaded from disk -> update it after loading
+            self._update_and_check_config()
         self._model_prepared = False
         self.keras_model = self._build()
         if config is None:
             self._find_and_load_weights()
-        else:
-            config.probabilistic = False
 
     def _build(self):
         return self._build_unet(
-            n_dim            = self.config.n_dim,
-            n_channel_out    = self.config.n_channel_out,
-            residual         = self.config.unet_residual,
-            n_depth          = self.config.unet_n_depth,
-            kern_size        = self.config.unet_kern_size,
-            n_first          = self.config.unet_n_first,
-            last_activation  = self.config.unet_last_activation,
-            batch_norm       = self.config.batch_norm
+            n_dim=self.config.n_dim,
+            n_channel_out=self.config.n_channel_out,
+            residual=self.config.unet_residual,
+            n_depth=self.config.unet_n_depth,
+            kern_size=self.config.unet_kern_size,
+            n_first=self.config.unet_n_first,
+            last_activation=self.config.unet_last_activation,
+            batch_norm=self.config.batch_norm
         )(self.config.unet_input_shape)
 
     def _build_unet(self, n_dim=2, n_depth=2, kern_size=3, n_first=32, n_channel_out=1, residual=False,
@@ -122,6 +131,87 @@ class Seg(CARE):
                                     prob_out=False, batch_norm=batch_norm)
 
         return _build_this
+
+
+    def train(self, X, Y, validation_data, epochs=None, steps_per_epoch=None):
+        n_train, n_val = len(X), len(validation_data[0])
+        frac_val = (1.0 * n_val) / (n_train + n_val)
+        frac_warn = 0.05
+        if frac_val < frac_warn:
+            warnings.warn("small number of validation images (only %.05f%% of all images)" % (100 * frac_val))
+        axes = axes_check_and_normalize('S' + self.config.axes, X.ndim)
+        ax = axes_dict(axes)
+        div_by = 2 ** self.config.unet_n_depth
+        axes_relevant = ''.join(a for a in 'XYZT' if a in axes)
+        val_num_pix = 1
+        train_num_pix = 1
+        val_patch_shape = ()
+        for a in axes_relevant:
+            n = X.shape[ax[a]]
+            val_num_pix *= validation_data[0].shape[ax[a]]
+            train_num_pix *= X.shape[ax[a]]
+            val_patch_shape += tuple([validation_data[0].shape[ax[a]]])
+            if n % div_by != 0:
+                raise ValueError(
+                    "training images must be evenly divisible by %d along axes %s"
+                    " (axis %s has incompatible size %d)" % (div_by, axes_relevant, a, n)
+                )
+
+        if epochs is None:
+            epochs = self.config.train_epochs
+        if steps_per_epoch is None:
+            steps_per_epoch = self.config.train_steps_per_epoch
+
+        if not self._model_prepared:
+            self.prepare_for_training()
+
+        manipulator = eval('pm_{0}({1})'.format(self.config.n2v_manipulator, str(self.config.n2v_neighborhood_radius)))
+
+        means = np.array([float(mean) for mean in self.config.means], ndmin=len(X.shape), dtype=np.float32)
+        stds = np.array([float(std) for std in self.config.stds], ndmin=len(X.shape), dtype=np.float32)
+
+        X = self.__normalize__(X, means, stds)
+        validation_X = self.__normalize__(validation_data[0], means, stds)
+
+        # Here we prepare the Noise2Void data. Our input is the noisy data X and as target we take X concatenated with
+        # a masking channel. The N2V_DataWrapper will take care of the pixel masking and manipulating.
+        training_data = N2S_DataWrapper(X=X,
+                                        n2v_Y=np.concatenate((X, np.zeros(X.shape, dtype=X.dtype)), axis=axes.index('C')),
+                                        seg_Y=Y,
+                                        batch_size=self.config.train_batch_size,
+                                        perc_pix=self.config.n2v_perc_pix,
+                                        shape=self.config.n2v_patch_shape,
+                                        value_manipulation=manipulator)
+
+        # validation_Y is also validation_X plus a concatenated masking channel.
+        # To speed things up, we precompute the masking vo the validation data.
+        validation_Y = np.concatenate((validation_X, np.zeros(validation_X.shape, dtype=validation_X.dtype)),
+                                      axis=axes.index('C'))
+        n2v_utils.manipulate_val_data(validation_X, validation_Y,
+                                      perc_pix=self.config.n2v_perc_pix,
+                                      shape=val_patch_shape,
+                                      value_manipulation=manipulator)
+
+        validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
+
+        history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
+                                                 epochs=epochs, steps_per_epoch=steps_per_epoch,
+                                                 callbacks=self.callbacks, verbose=1)
+
+        if self.basedir is not None:
+            self.keras_model.save_weights(str(self.logdir / 'weights_last.h5'))
+
+            if self.config.train_checkpoint is not None:
+                print()
+                self._find_and_load_weights(self.config.train_checkpoint)
+                try:
+                    # remove temporary weights
+                    (self.logdir / 'weights_now.h5').unlink()
+                except FileNotFoundError:
+                    pass
+
+        return history
+
 
     def prepare_for_training(self, optimizer=None, **kwargs):
         """Prepare for neural network training.
@@ -203,24 +293,29 @@ class Seg(CARE):
                 rlrop_params['verbose'] = True
             self.callbacks.append(ReduceLROnPlateau(**rlrop_params))
 
+        early_stopping_callback = tf.compat.v1.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-6,
+                                                                             patience=self.config.train_reduce_lr['patience']*2,
+                                                                             verbose=True, mode='min')
+        self.callbacks.append(early_stopping_callback)
+
         self._model_prepared = True
 
-    def predict_label_masks(self, X, Y, threshold):
+    def predict_label_masks(self, X, Y, threshold, measure):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
             pred_ = self.predict(X[i].astype(np.float32), axes='YX')
-            prediction_exp = np.exp(pred_[..., :])
+            prediction_exp = np.exp(pred_[..., 1:])
             prediction_seg = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
             prediction_fg = prediction_seg[..., 1]
             pred_thresholded = prediction_fg > threshold
             labels, nb = ndimage.label(pred_thresholded)
             predicted_images.append(labels)
-            precision_result.append(precision(Y[i], predicted_images[i]))
+            precision_result.append(measure(Y[i], predicted_images[i]))
         return predicted_images, np.mean(precision_result)
 
-    def optimize_thresholds(self, valdata, valmasks):
-        return compute_threshold(valdata, valmasks, self)
+    def optimize_thresholds(self, valdata, valmasks, measure):
+        return compute_threshold(valdata, valmasks, self, measure=measure)
 
     def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
         """
@@ -238,16 +333,30 @@ class Seg(CARE):
         image : array(float)
                 The restored image.
         """
+        means = np.array([float(mean) for mean in self.config.means], ndmin=len(img.shape), dtype=np.float32)
+        stds = np.array([float(std) for std in self.config.stds], ndmin=len(img.shape), dtype=np.float32)
 
         if img.dtype != np.float32:
             print('The input image is of type {} and will be casted to float32 for prediction.'.format(img.dtype))
             img = img.astype(np.float32)
 
+        # new_axes = axes
         new_axes = axes
-        normalized = img[..., np.newaxis]
-        normalized = normalized[..., 0]
-        pred = \
-        self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
+        if 'C' in axes:
+            new_axes = axes.replace('C', '') + 'C'
+            normalized = self.__normalize__(np.moveaxis(img, axes.index('C'), -1), means, stds)
+        else:
+            normalized = self.__normalize__(img[..., np.newaxis], means, stds)
+            normalized = normalized[..., 0]
+
+        pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
+
+        pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
+        
+        pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
+        
+        if 'C' in axes:
+            pred = np.moveaxis(pred, -1, axes.index('C'))
 
         return pred
 
@@ -273,7 +382,14 @@ class Seg(CARE):
         from keras.optimizers import Optimizer
         isinstance(optimizer, Optimizer) or _raise(ValueError())
 
-        loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
+        if self.config.train_loss == 'seg':
+            loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
+        elif self.config.train_loss == 'noise2seg':
+            loss_standard = eval('loss_noise2seg(weight_seg={}, weight_denoise={}, relative_weights={})'.format(
+                self.config.n2s_weight_seg, self.config.n2s_weight_denoise,
+                self.config.relative_weights))
+        else:
+            _raise('Unknown Loss!')
 
         _metrics = [loss_standard]
         callbacks = [TerminateOnNaN()]
@@ -282,3 +398,34 @@ class Seg(CARE):
         model.compile(optimizer=optimizer, loss=loss_standard, metrics=_metrics)
 
         return callbacks
+
+    def __normalize__(self, data, means, stds):
+        return (data - means) / stds
+
+
+    def __denormalize__(self, data, means, stds):
+        return (data * stds) + means
+
+    def _set_logdir(self):
+        self.logdir = self.basedir / self.name
+
+        config_file = self.logdir / 'config.json'
+        if self.config is None:
+            if config_file.exists():
+                config_dict = load_json(str(config_file))
+                self.config = self._config_class(np.array([]), **config_dict)
+                if not self.config.is_valid():
+                    invalid_attr = self.config.is_valid(True)[1]
+                    raise ValueError('Invalid attributes in loaded config: ' + ', '.join(invalid_attr))
+            else:
+                raise FileNotFoundError("config file doesn't exist: %s" % str(config_file.resolve()))
+        else:
+            if self.logdir.exists():
+                warnings.warn(
+                    'output path for model already exists, files may be overwritten: %s' % str(self.logdir.resolve()))
+            self.logdir.mkdir(parents=True, exist_ok=True)
+            save_json(vars(self.config), str(config_file))
+
+    @property
+    def _config_class(self):
+        return Noise2SegConfig

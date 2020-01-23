@@ -2,7 +2,7 @@ import numpy as np
 from skimage.segmentation import find_boundaries
 
 
-def convert_to_oneHot(data):
+def convert_to_oneHot(data, eps=1e-8):
     """
     Converts labelled images (`data`) to one-hot encoding.
 
@@ -18,6 +18,9 @@ def convert_to_oneHot(data):
     data_oneHot = np.zeros((*data.shape, 3), dtype=np.float32)
     for i in range(data.shape[0]):
         data_oneHot[i] = onehot_encoding(add_boundary_label(data[i].astype(np.int32)))
+        if ( np.abs(np.max(data[i])) <= eps ):
+            data_oneHot[i][...,0] *= 0
+
     return data_oneHot
 
 
@@ -89,7 +92,7 @@ def denormalize(img, mean, std):
     return (img * std) + mean
 
 
-def fractionate_train_data(X_train, Y_train, fraction):
+def zero_out_train_data(X_train, Y_train, fraction):
     """
     Fractionates training data according to the specified `fraction`.
 
@@ -110,7 +113,6 @@ def fractionate_train_data(X_train, Y_train, fraction):
         Fractionated array of label images.
     """
     train_frac = int(np.round((fraction / 100) * X_train.shape[0]))
-    X_train = X_train[:train_frac]
-    Y_train = Y_train[:train_frac]
+    Y_train[train_frac:] *= 0
 
     return X_train, Y_train
