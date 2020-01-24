@@ -125,6 +125,15 @@ def isnotebook():
         return False
 
 
+def compute_labels(prediction, threshold):
+    prediction_exp = np.exp(prediction[..., 1:])
+    prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
+    prediction_fg = prediction_softmax[..., 1]
+    pred_thresholded = prediction_fg > threshold
+    labels, _ = ndimage.label(pred_thresholded)
+    return labels
+
+
 def compute_threshold(X_val, Y_val, model, measure=measure_precision()):
     """
     Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
@@ -157,12 +166,7 @@ def compute_threshold(X_val, Y_val, model, measure=measure_precision()):
         for idx in range(X_val.shape[0]):
             img, gt = X_val[idx], Y_val[idx]
             prediction = model.predict(img, axes='YX')
-            prediction_exp = np.exp(prediction[..., 1:])
-            prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
-            prediction_fg = prediction_softmax[..., 1]
-            pred_thresholded = prediction_fg > ts
-            labels, _ = ndimage.label(pred_thresholded)
-
+            labels = compute_labels(prediction, ts)
             tmp_score = measure(gt, labels)
             if not np.isnan(tmp_score):
                 score += tmp_score

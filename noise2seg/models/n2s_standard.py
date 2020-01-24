@@ -15,7 +15,7 @@ from scipy import ndimage
 from six import string_types
 
 from noise2seg.models import Noise2SegConfig
-from noise2seg.utils.compute_precision_threshold import compute_threshold
+from noise2seg.utils.compute_precision_threshold import compute_threshold, compute_labels
 from ..internals.N2S_DataWrapper import N2S_DataWrapper
 from noise2seg.internals.losses import loss_noise2seg, loss_seg
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
@@ -293,23 +293,14 @@ class Noise2Seg(CARE):
                 rlrop_params['verbose'] = True
             self.callbacks.append(ReduceLROnPlateau(**rlrop_params))
 
-        early_stopping_callback = tf.compat.v1.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-6,
-                                                                             patience=self.config.train_reduce_lr['patience']*2,
-                                                                             verbose=True, mode='min')
-        self.callbacks.append(early_stopping_callback)
-
         self._model_prepared = True
 
     def predict_label_masks(self, X, Y, threshold, measure):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
-            pred_ = self.predict(X[i].astype(np.float32), axes='YX')
-            prediction_exp = np.exp(pred_[..., 1:])
-            prediction_seg = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
-            prediction_fg = prediction_seg[..., 1]
-            pred_thresholded = prediction_fg > threshold
-            labels, nb = ndimage.label(pred_thresholded)
+            prediction = self.predict(X[i].astype(np.float32), axes='YX')
+            labels = compute_labels(prediction, threshold)
             predicted_images.append(labels)
             precision_result.append(measure(Y[i], predicted_images[i]))
         return predicted_images, np.mean(precision_result)
