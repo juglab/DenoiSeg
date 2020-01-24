@@ -293,11 +293,6 @@ class Noise2Seg(CARE):
                 rlrop_params['verbose'] = True
             self.callbacks.append(ReduceLROnPlateau(**rlrop_params))
 
-        early_stopping_callback = tf.compat.v1.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=1e-6,
-                                                                             patience=self.config.train_reduce_lr['patience']*2,
-                                                                             verbose=True, mode='min')
-        self.callbacks.append(early_stopping_callback)
-
         self._model_prepared = True
 
     def predict_label_masks(self, X, Y, threshold, measure):
