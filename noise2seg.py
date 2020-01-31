@@ -84,7 +84,7 @@ def main():
     n2s_model = Noise2Seg(None, conf['model_name'], conf['basedir'])
 
     # compute AP results
-    ap_threshold = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_precision())
+    ap_threshold, validation_ap_score = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_precision())
     predicted_ap_images, precision_result = n2s_model.predict_label_masks(test_images, test_masks, ap_threshold, measure=measure_precision())
     print("Average precision over all test images at IOU = 0.5 with threshold = {}: ".format(ap_threshold), precision_result)
 
@@ -95,6 +95,8 @@ def main():
         io.imsave(join(ap_path, 'mask' + str(i).zfill(3) + '.tif'), predicted_ap_images[i].astype(np.int16))
 
     # use ap-threshold to compute SEG-scores
+    validation_ap_seg_images, validation_ap_seg_score = n2s_model.predict_label_masks(val_images, Y_val_masks, ap_threshold,
+                                                                          measure=measure_seg())
     predicted_ap_seg_images, ap_seg_result = n2s_model.predict_label_masks(test_images, test_masks, ap_threshold,
                                                                           measure=measure_seg())
     print("SEG score over all test images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold),
@@ -107,7 +109,7 @@ def main():
         io.imsave(join(ap_seg_path, 'mask' + str(i).zfill(3) + '.tif'), predicted_ap_seg_images[i].astype(np.int16))
 
     # compute SEG results
-    seg_threshold = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_seg())
+    seg_threshold, validation_seg_score = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_seg())
     predicted_seg_images, seg_result = n2s_model.predict_label_masks(test_images, test_masks, seg_threshold, measure=measure_seg())
     print("SEG over all test images at IOU = 0.5 with threshold = {}: ".format(seg_threshold), seg_result)
 
@@ -122,6 +124,12 @@ def main():
         writer.writerow(['AP', precision_result])
         writer.writerow(['SEG', seg_result])
         writer.writerow(['SEG_AP-Threshold', ap_seg_result])
+        
+    with open(join(conf['basedir'], "validation_scores.csv"), mode='w') as f:
+        writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(['AP', validation_ap_score])
+        writer.writerow(['SEG', validation_seg_score])
+        writer.writerow(['SEG_AP-Threshold', validation_ap_seg_score ])
 
 
 if __name__=="__main__":
