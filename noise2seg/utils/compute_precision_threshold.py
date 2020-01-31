@@ -175,6 +175,7 @@ def compute_threshold(X_val, Y_val, model, measure=measure_precision()):
         precision_scores.append((ts, score))
         print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
-    best_score = sorted(precision_scores, key=lambda tup: tup[1])[-1]
-    computed_threshold = best_score[0]
-    return computed_threshold
+    sorted_score = sorted(precision_scores, key=lambda tup: tup[1])[-1]
+    computed_threshold = sorted_score[0]
+    best_score = sorted_score[1]
+    return computed_threshold, best_score

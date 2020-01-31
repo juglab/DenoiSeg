@@ -302,11 +302,14 @@ class Noise2Seg(CARE):
             prediction = self.predict(X[i].astype(np.float32), axes='YX')
             labels = compute_labels(prediction, threshold)
             predicted_images.append(labels)
-            precision_result.append(measure(Y[i], predicted_images[i]))
+            tmp_score = measure(Y[i], predicted_images[i])
+            if not np.isnan(tmp_score):
+                precision_result.append(tmp_score)
         return predicted_images, np.mean(precision_result)
 
     def optimize_thresholds(self, valdata, valmasks, measure):
-        return compute_threshold(valdata, valmasks, self, measure=measure)
+        threshold, best_score = compute_threshold(valdata, valmasks, self, measure=measure)
+        return threshold, best_score
 
     def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
         """
