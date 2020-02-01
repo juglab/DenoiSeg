@@ -49,7 +49,7 @@ def main():
     # use ap-threshold to compute SEG-scores
     predicted_ap_seg_images, ap_seg_result = n2s_model.predict_label_masks(val_images, Y_val_masks, ap_threshold,
                                                                           measure=measure_seg())
-    print("SEG score over all test images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold),
+    print("SEG score over all validation images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold),
           ap_seg_result)
     
     # compute SEG results
