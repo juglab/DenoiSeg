@@ -13,7 +13,7 @@ singularity_path = "/projects/Noise2Seg/singularity/"
 base_dir = "/projects/Noise2Seg"
 gitrepo_path = join(base_dir, 'Noise2Seg')
 base_path_data = join(base_dir, "data")
-base_path_exp = join(base_dir, "experiments2")
+base_path_exp = join(base_dir, "experiments")
 
 def data_path(config):
     l = glob.glob(join(base_path_data, '*'), recursive=True)
