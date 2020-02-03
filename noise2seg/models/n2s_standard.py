@@ -15,10 +15,11 @@ from scipy import ndimage
 from six import string_types
 
 from noise2seg.models import Noise2SegConfig
-from noise2seg.utils.compute_precision_threshold import compute_threshold, compute_labels
+from noise2seg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.N2S_DataWrapper import N2S_DataWrapper
 from noise2seg.internals.losses import loss_noise2seg, loss_seg
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
+from tqdm import tqdm, tqdm_notebook
 
 
 class Noise2Seg(CARE):
@@ -299,14 +300,52 @@ class Noise2Seg(CARE):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
-            prediction = self.predict(X[i].astype(np.float32), axes='YX')
-            labels = compute_labels(prediction, threshold)
-            predicted_images.append(labels)
-            precision_result.append(measure(Y[i], predicted_images[i]))
+            if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
+                continue
+            else:
+                prediction = self.predict(X[i].astype(np.float32), axes='YX')
+                labels = compute_labels(prediction, threshold)
+                tmp_score = measure(Y[i], labels)
+                predicted_images.append(labels)
+                precision_result.append(tmp_score)
         return predicted_images, np.mean(precision_result)
 
-    def optimize_thresholds(self, valdata, valmasks, measure):
-        return compute_threshold(valdata, valmasks, self, measure=measure)
+    def optimize_thresholds(self, X_val, Y_val, measure):
+        """
+         Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
+
+         Parameters
+         ----------
+         X_val : array(float)
+             Array of validation images.
+         Y_val : array(float)
+             Array of validation labels
+         model: keras model
+
+         mode: 'none', 'StarDist'
+             If `none`, consider a U-net type model, else, considers a `StarDist` type model
+         Returns
+         -------
+         computed_threshold: float
+             Best-performing threshold that gives the highest AP.
+
+
+         """
+        print('Computing best threshold: ')
+        precision_scores = []
+        if (isnotebook()):
+            progress_bar = tqdm_notebook
+        else:
+            progress_bar = tqdm
+        for ts in progress_bar(np.linspace(0.1, 1, 19)):
+            _, score = self.predict_label_masks(X_val, Y_val, ts, measure)
+            precision_scores.append((ts, score))
+            print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
+
+        sorted_score = sorted(precision_scores, key=lambda tup: tup[1])[-1]
+        computed_threshold = sorted_score[0]
+        best_score = sorted_score[1]
+        return computed_threshold, best_score
 
     def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
         """
