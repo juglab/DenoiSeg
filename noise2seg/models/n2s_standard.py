@@ -305,8 +305,8 @@ class Noise2Seg(CARE):
             else:
                 prediction = self.predict(X[i].astype(np.float32), axes='YX')
                 labels = compute_labels(prediction, threshold)
+                tmp_score = measure(Y[i], labels)
                 predicted_images.append(labels)
-                tmp_score = measure(Y[i], predicted_images[i])
                 precision_result.append(tmp_score)
         return predicted_images, np.mean(precision_result)
 
