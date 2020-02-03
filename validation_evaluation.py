@@ -51,7 +51,7 @@ def main():
                                                                           measure=measure_seg())
 
 
-    print("SEG score over all validation images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold),
+    print("SEG score over all validation images at IOU = 0.5 with ap-threshold = {}: ".format(ap_threshold), ap_seg_result)
 
 
     

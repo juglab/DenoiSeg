@@ -5,6 +5,7 @@ from distutils.dir_util import copy_tree as copytree
 import glob
 import sys
 from PyInquirer import prompt, Validator, ValidationError
+import numpy as np
 
 import json
 
@@ -27,8 +28,8 @@ class ValExpName(Validator):
     def validate(self, document):
         names = glob.glob(join(base_path_exp, '*'))
         names = [n.split('/')[-1] for n in names]
-
-        if document.text in names:
+        
+        if np.any(document.text in name for name in names):
             raise ValidationError(
                 message='An experiment with this name already exists. Please choose another name.',
                 cursor_position=len(document.text)
