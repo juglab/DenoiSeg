@@ -300,7 +300,7 @@ class Noise2Seg(CARE):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
-            if(np.max(Y[i])==0):
+            if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
                 continue
             else:
                 prediction = self.predict(X[i].astype(np.float32), axes='YX')
