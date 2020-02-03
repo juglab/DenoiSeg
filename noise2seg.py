@@ -63,7 +63,7 @@ def main():
     print("train_steps_per_epoch =", train_steps_per_epoch)
     n2s_conf = Noise2SegConfig(X, unet_kern_size=3, n_channel_out=4, relative_weights = [1.0,1.0,5.0],
                        train_steps_per_epoch=train_steps_per_epoch, train_epochs=conf['train_epochs'], train_loss='noise2seg', batch_norm=True,
-                       train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'], n2s_weight_seg=conf['n2s_weight_seg'],
+                       train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'],
                                n2s_weight_denoise=conf['n2s_weight_denoise'],
                               train_tensorboard=False,
                                train_reduce_lr={"patience" : 10,

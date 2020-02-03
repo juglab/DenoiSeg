@@ -28,8 +28,9 @@ class ValExpName(Validator):
     def validate(self, document):
         names = glob.glob(join(base_path_exp, '*'))
         names = [n.split('/')[-1] for n in names]
-        
-        if np.any(document.text in name for name in names):
+
+        doc_text = document.text.split('run')[0]
+        if doc_text in names:
             raise ValidationError(
                 message='An experiment with this name already exists. Please choose another name.',
                 cursor_position=len(document.text)
@@ -109,14 +110,6 @@ def main():
         },
         {
             'type': 'input',
-            'name': 'n2s_weight_seg',
-            'message': 'Noise2Seg weighting for segmentation',
-            'default': '1.0',
-            'validate': lambda val: float(val) >= 0,
-            'filter': lambda val: float(val)
-        },
-        {
-            'type': 'input',
             'name': 'n2s_weight_denoise',
             'message': 'Noise2Seg weighting for denoising',
             'default': '1.0',
@@ -148,7 +141,6 @@ def create_configs(config, run_name, seed, train_fraction):
         "train_epochs": config['train_epochs'],
         "train_batch_size": config['train_batch_size'],
         "unet_n_depth": config['unet_n_depth'],
-        "n2s_weight_seg": config['n2s_weight_seg'],
         "n2s_weight_denoise": config['n2s_weight_denoise']
     }
 
