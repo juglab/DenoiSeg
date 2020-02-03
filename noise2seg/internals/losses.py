@@ -29,7 +29,7 @@ def loss_seg(relative_weights):
     return seg_crossentropy
 
 
-def loss_noise2seg(weight_seg=1, weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
+def loss_noise2seg(weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
     """
     Calculate noise2seg loss which is a weighted sum of segmentation- and
     noise2void-loss
@@ -57,7 +57,7 @@ def loss_noise2seg(weight_seg=1, weight_denoise=1, relative_weights=[1.0, 1.0, 5
 
         denoising_loss = n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
 
-        loss = weight_seg * segmentation_loss + weight_denoise * denoising_loss
+        loss = segmentation_loss + weight_denoise * denoising_loss
 
         return loss
 

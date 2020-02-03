@@ -415,8 +415,8 @@ class Noise2Seg(CARE):
         if self.config.train_loss == 'seg':
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
         elif self.config.train_loss == 'noise2seg':
-            loss_standard = eval('loss_noise2seg(weight_seg={}, weight_denoise={}, relative_weights={})'.format(
-                self.config.n2s_weight_seg, self.config.n2s_weight_denoise,
+            loss_standard = eval('loss_noise2seg(weight_denoise={}, relative_weights={})'.format(
+                self.config.n2s_weight_denoise,
                 self.config.relative_weights))
         else:
             _raise('Unknown Loss!')
