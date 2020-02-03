@@ -28,8 +28,9 @@ class ValExpName(Validator):
     def validate(self, document):
         names = glob.glob(join(base_path_exp, '*'))
         names = [n.split('/')[-1] for n in names]
-        
-        if np.any(document.text in name for name in names):
+
+        doc_text = document.text.split('run')[0]
+        if doc_text in names:
             raise ValidationError(
                 message='An experiment with this name already exists. Please choose another name.',
                 cursor_position=len(document.text)
