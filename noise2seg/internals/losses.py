@@ -57,7 +57,7 @@ def loss_noise2seg(weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
 
         denoising_loss = n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
 
-        loss = segmentation_loss + weight_denoise * denoising_loss
+        loss = (1 - weight_denoise) * segmentation_loss + weight_denoise * denoising_loss
 
         return loss
 
