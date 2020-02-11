@@ -61,8 +61,8 @@ class Noise2SegConfig(argparse.Namespace):
         Noise2Void pixel value manipulator. Default: ``uniform_withCP``
     n2v_neighborhood_radius : int
         Neighborhood radius for n2v_old manipulator. Default: ``5``
-    n2s_weight_denoise : float
-        Weight for denoising loss contribution to the noise2seg-loss: Default: ``1.0``
+    n2s_alpha : float
+        Factor modulating the contribution of denoising and segmentation. alpha * denoising + (1-alpha) * segmentation: Default: ``0.5``
 
         .. _ReduceLROnPlateau: https://keras.io/callbacks/#reducelronplateau
     """
@@ -147,7 +147,7 @@ class Noise2SegConfig(argparse.Namespace):
             self.n2v_patch_shape = (64, 64) if self.n_dim == 2 else (64, 64, 64)
             self.n2v_manipulator = 'uniform_withCP'
             self.n2v_neighborhood_radius = 5
-            self.n2s_weight_denoise = 1.0
+            self.n2s_alpha = 0.5
 
         # disallow setting 'probabilistic' manually
         try:
@@ -223,7 +223,7 @@ class Noise2SegConfig(argparse.Namespace):
         ok['n2v_manipulator'] = self.n2v_manipulator in ['normal_withoutCP', 'uniform_withCP', 'normal_additive',
                                                          'normal_fitted', 'identity']
         ok['n2v_neighborhood_radius'] = _is_int(self.n2v_neighborhood_radius, 0)
-        ok['n2s_weight_denoise'] = isinstance(self.n2s_weight_denoise, float) and self.n2s_weight_denoise >= 0.0
+        ok['n2s_alpha'] = isinstance(self.n2s_alpha, float) and self.n2s_alpha >= 0.0
 
         if return_invalid:
             return all(ok.values()), tuple(k for (k, v) in ok.items() if not v)

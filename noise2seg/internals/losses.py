@@ -1,7 +1,7 @@
 import keras.backend as K
 import tensorflow as tf
-from tensorflow.nn import softmax_cross_entropy_with_logits_v2 as cross_entropy
 from n2v.internals.n2v_losses import loss_mse as n2v_loss
+from tensorflow.nn import softmax_cross_entropy_with_logits_v2 as cross_entropy
 
 
 def loss_seg(relative_weights):
@@ -29,7 +29,7 @@ def loss_seg(relative_weights):
     return seg_crossentropy
 
 
-def loss_noise2seg(weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
+def loss_noise2seg(alpha=0.5, relative_weights=[1.0, 1.0, 5.0]):
     """
     Calculate noise2seg loss which is a weighted sum of segmentation- and
     noise2void-loss
@@ -38,10 +38,19 @@ def loss_noise2seg(weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
     :param relative_weights: Segmentation class weights (background, foreground, border); (Default: [1.0, 1.0, 5.0])
     :return: noise2seg loss
     """
-    class_weights = tf.constant([relative_weights])
-    n2v_mse_loss = n2v_loss()
+    denoise_loss = noise2seg_denoise_loss(weight=alpha)
+    seg_loss = noise2seg_seg_loss(weight=(1 - alpha), relative_weights=relative_weights)
 
     def noise2seg(y_true, y_pred):
+        return seg_loss(y_true, y_pred) + denoise_loss(y_true, y_pred)
+
+    return noise2seg
+
+
+def noise2seg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
+    class_weights = tf.constant([relative_weights])
+
+    def seg_loss(y_true, y_pred):
         channel_axis = len(y_true.shape) - 1
         target, mask, bg, fg, b = tf.split(y_true, 5, axis=channel_axis)
         denoised, pred_bg, pred_fg, pred_b = tf.split(y_pred, 4, axis=len(y_pred.shape) - 1)
@@ -55,10 +64,19 @@ def loss_noise2seg(weight_denoise=1, relative_weights=[1.0, 1.0, 5.0]):
             tf.reduce_sum(onehot_gt, axis=-1) * (cross_entropy(logits=onehot_pred, labels=onehot_gt) * weighted_gt)
         )
 
-        denoising_loss = n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
+        return weight * segmentation_loss
 
-        loss = (1 - weight_denoise) * segmentation_loss + weight_denoise * denoising_loss
+    return seg_loss
 
-        return loss
 
-    return noise2seg
+def noise2seg_denoise_loss(weight=0.5):
+    n2v_mse_loss = n2v_loss()
+
+    def denoise_loss(y_true, y_pred):
+        channel_axis = len(y_true.shape) - 1
+        target, mask, bg, fg, b = tf.split(y_true, 5, axis=channel_axis)
+        denoised, pred_bg, pred_fg, pred_b = tf.split(y_pred, 4, axis=len(y_pred.shape) - 1)
+
+        return weight * n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
+
+    return denoise_loss
