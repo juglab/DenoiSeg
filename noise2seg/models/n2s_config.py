@@ -50,7 +50,7 @@ class Noise2SegConfig(argparse.Namespace):
     train_checkpoint : str
         Name of checkpoint file for model weights (only best are saved); set to ``None`` to disable. Default: ``weights_best.h5``
     train_reduce_lr : dict
-        Parameter :class:`dict` of ReduceLROnPlateau_ callback; set to ``None`` to disable. Default: ``{'factor': 0.5, 'patience': 10}``
+        Parameter :class:`dict` of ReduceLROnPlateau_ callback; set to ``None`` to disable. Default: ``{'monitor': 'val_seg_loss', 'factor': 0.5, 'patience': 10}``
     train_loss : str
         Switch between seg- or noise2seg-loss; Default: ``noise2seg``
     n2v_perc_pix : float
@@ -141,7 +141,7 @@ class Noise2SegConfig(argparse.Namespace):
             self.train_checkpoint = 'weights_best.h5'
             self.train_checkpoint_last  = 'weights_last.h5'
             self.train_checkpoint_epoch = 'weights_now.h5'
-            self.train_reduce_lr = {'factor': 0.5, 'patience': 10}
+            self.train_reduce_lr = {'monitor': 'val_seg_loss', 'factor': 0.5, 'patience': 10}
             self.batch_norm = True
             self.n2v_perc_pix = 1.5
             self.n2v_patch_shape = (64, 64) if self.n_dim == 2 else (64, 64, 64)
@@ -212,7 +212,7 @@ class Noise2SegConfig(argparse.Namespace):
         ok['train_batch_size'] = _is_int(self.train_batch_size, 1)
         ok['train_tensorboard'] = isinstance(self.train_tensorboard, bool)
         ok['train_checkpoint'] = self.train_checkpoint is None or isinstance(self.train_checkpoint, string_types)
-        ok['train_reduce_lr'] = self.train_reduce_lr is None or isinstance(self.train_reduce_lr, dict)
+        ok['train_reduce_lr'] = self.train_reduce_lr is None or isinstance(self.train_reduce_lr, dict) and self.train_reduce_lr['monitor'] in ['val_loss', 'val_seg_loss', 'val_denoise_loss']
         ok['batch_norm'] = isinstance(self.batch_norm, bool)
         ok['n2v_perc_pix'] = self.n2v_perc_pix > 0 and self.n2v_perc_pix <= 100
         ok['n2v_patch_shape'] = (

@@ -292,7 +292,6 @@ class Noise2Seg(CARE):
             rlrop_params = self.config.train_reduce_lr
             if 'verbose' not in rlrop_params:
                 rlrop_params['verbose'] = True
-            rlrop_params['monitor'] = 'val_seg_loss'
             self.callbacks.append(ReduceLROnPlateau(**rlrop_params))
 
         self._model_prepared = True
