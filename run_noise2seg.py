@@ -115,6 +115,12 @@ def main():
             'default': '0.5',
             'validate': lambda val: float(val) >= 0,
             'filter': lambda val: float(val)
+        },
+        {
+            'type': 'list',
+            'name': 'n2s_monitor',
+            'message': 'Noise2Seg Monitoring',
+            'choices': ['val_loss', 'val_seg_loss', 'val_denoise_loss']
         }
     ]
 
@@ -141,7 +147,8 @@ def create_configs(config, run_name, seed, train_fraction):
         "train_epochs": config['train_epochs'],
         "train_batch_size": config['train_batch_size'],
         "unet_n_depth": config['unet_n_depth'],
-        "n2s_alpha": config['n2s_alpha']
+        "n2s_alpha": config['n2s_alpha'],
+        "n2s_monitor": config['n2s_monitor']
     }
 
     return exp_conf
