@@ -31,11 +31,10 @@ class ValExpName(Validator):
 
         doc_text = document.text.split('run')[0]
         if doc_text in names:
-            print('careful')
-            # raise ValidationError(
-            #     message='An experiment with this name already exists. Please choose another name.',
-            #     cursor_position=len(document.text)
-            # )
+            raise ValidationError(
+                message='An experiment with this name already exists. Please choose another name.',
+                cursor_position=len(document.text)
+            )
 
 
 class TrainFracValidator(Validator):

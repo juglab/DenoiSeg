@@ -292,6 +292,7 @@ class Noise2Seg(CARE):
             rlrop_params = self.config.train_reduce_lr
             if 'verbose' not in rlrop_params:
                 rlrop_params['verbose'] = True
+            rlrop_params['monitor'] = 'val_seg_loss'
             self.callbacks.append(ReduceLROnPlateau(**rlrop_params))
 
         self._model_prepared = True
@@ -418,10 +419,13 @@ class Noise2Seg(CARE):
             loss_standard = eval('loss_noise2seg(alpha={}, relative_weights={})'.format(
                 self.config.n2s_alpha,
                 self.config.relative_weights))
+            seg_metric = eval('noise2seg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.n2s_alpha,
+                                                                                          self.config.relative_weights))
+            denoise_metric = eval('noise2seg_denoise_loss(weight={})'.format(self.config.n2s_alpha))
         else:
             _raise('Unknown Loss!')
 
-        _metrics = [loss_standard]
+        _metrics = [loss_standard, seg_metric, denoise_metric]
         callbacks = [TerminateOnNaN()]
 
         # compile model
