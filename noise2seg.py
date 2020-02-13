@@ -62,15 +62,17 @@ def main():
     train_steps_per_epoch = max(100, min(int(X.shape[0]/conf['train_batch_size']), 400))
     print("train_steps_per_epoch =", train_steps_per_epoch)
     n2s_conf = Noise2SegConfig(X, unet_kern_size=3, n_channel_out=4, relative_weights = [1.0,1.0,5.0],
-                       train_steps_per_epoch=train_steps_per_epoch, train_epochs=conf['train_epochs'], train_loss='noise2seg', batch_norm=True,
-                       train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'],
-                               n2s_weight_denoise=conf['n2s_weight_denoise'],
-                              train_tensorboard=False,
-                               train_reduce_lr={"patience" : 10,
+                               train_steps_per_epoch=train_steps_per_epoch, train_epochs=conf['train_epochs'], train_loss='noise2seg', batch_norm=True,
+                               train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'],
+                               n2s_alpha=conf['n2s_alpha'],
+                               train_tensorboard=False,
+                               train_reduce_lr={"monitor" : conf['n2s_monitor'],
+                                                "patience" : 10,
                                                 "min_delta" : 0.00001,
                                                 "factor" : 0.75,
                                                 "min_lr" : 0.0000125
-                                                  })
+                                                  }
+                               )
 
     vars(n2s_conf)
     n2s_model = Noise2Seg(n2s_conf, conf['model_name'], conf['basedir'])

@@ -110,11 +110,17 @@ def main():
         },
         {
             'type': 'input',
-            'name': 'n2s_weight_denoise',
-            'message': 'Noise2Seg weighting for denoising',
-            'default': '1.0',
+            'name': 'n2s_alpha',
+            'message': 'Noise2Seg Alpha',
+            'default': '0.5',
             'validate': lambda val: float(val) >= 0,
             'filter': lambda val: float(val)
+        },
+        {
+            'type': 'list',
+            'name': 'n2s_monitor',
+            'message': 'Noise2Seg Monitoring',
+            'choices': ['val_loss', 'val_seg_loss', 'val_denoise_loss']
         }
     ]
 
@@ -141,7 +147,8 @@ def create_configs(config, run_name, seed, train_fraction):
         "train_epochs": config['train_epochs'],
         "train_batch_size": config['train_batch_size'],
         "unet_n_depth": config['unet_n_depth'],
-        "n2s_weight_denoise": config['n2s_weight_denoise']
+        "n2s_alpha": config['n2s_alpha'],
+        "n2s_monitor": config['n2s_monitor']
     }
 
     return exp_conf
@@ -164,7 +171,6 @@ def start_n2s_experiment(exp_conf, exp_path, data_path):
     os.system('chmod -R 775 ' + exp_path)
 
     os.system('sbatch {}'.format(join(exp_path, "slurm.job")))
-
 
 def create_slurm_script(exp_path, data_path):
     script = [
