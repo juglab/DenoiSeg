@@ -183,7 +183,7 @@ def create_slurm_script(exp_path, data_path):
         "#SBATCH -c 1\n",
         "#SBATCH --partition=gpu\n",
         "#SBATCH --gres=gpu:1\n",
-        "#SBATCH --exclude=r02n01,r01n01,r01n02,r01n03,r01n04,r02n22\n",
+        "#SBATCH --exclude=r02n01,r01n01,r01n02,r01n03,r02n08\n",
         "#SBATCH --mem=32000\n",
         "#SBATCH --export=ALL\n",
         "\n",
