@@ -17,6 +17,7 @@ from six import string_types
 from noise2seg.models import Noise2SegConfig
 from noise2seg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.N2S_DataWrapper import N2S_DataWrapper
+from ..internals.AlphaScheduling import AlphaScheduling
 from noise2seg.internals.losses import loss_noise2seg, noise2seg_denoise_loss, noise2seg_seg_loss
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
@@ -82,6 +83,8 @@ class Noise2Seg(CARE):
         self.keras_model = self._build()
         if config is None:
             self._find_and_load_weights()
+
+        self.alpha = K.variable(value=1, dtype='float32')
 
     def _build(self):
         return self._build_unet(
@@ -194,6 +197,14 @@ class Noise2Seg(CARE):
                                       value_manipulation=manipulator)
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
+
+        # Add alpha-scheduling
+        cross_point = self.config.n2s_alpha
+        def scheduling(epoch):
+            return np.clip(1 - epoch/(self.config.train_epochs - 1) * 0.5/cross_point, 0, 1)
+
+        alphaScheduling = AlphaScheduling(self.alpha, scheduling)
+        self.callbacks.append(alphaScheduling)
 
         history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
@@ -424,7 +435,10 @@ class Noise2Seg(CARE):
         else:
             _raise('Unknown Loss!')
 
-        _metrics = [loss_standard, seg_metric, denoise_metric]
+        def alpha_monitor(y_true, y_pred):
+            return self.alpha
+
+        _metrics = [loss_standard, seg_metric, denoise_metric, alpha_monitor]
         callbacks = [TerminateOnNaN()]
 
         # compile model
