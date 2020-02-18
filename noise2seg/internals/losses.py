@@ -80,3 +80,10 @@ def noise2seg_denoise_loss(weight=0.5):
         return weight * n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
 
     return denoise_loss
+
+def seg_denoise_ratio_monitor():
+
+    def seg_denoise_ratio(y_true, y_pred):
+        return tf.reduce_mean(tf.reduce_sum(y_true[...,2:], axis=-1)[:,0,0])
+
+    return seg_denoise_ratio

@@ -17,8 +17,7 @@ from six import string_types
 from noise2seg.models import Noise2SegConfig
 from noise2seg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.N2S_DataWrapper import N2S_DataWrapper
-from ..internals.AlphaScheduling import AlphaScheduling
-from noise2seg.internals.losses import loss_noise2seg, noise2seg_denoise_loss, noise2seg_seg_loss
+from noise2seg.internals.losses import loss_noise2seg, noise2seg_denoise_loss, noise2seg_seg_loss, seg_denoise_ratio_monitor
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
 
@@ -425,6 +424,7 @@ class Noise2Seg(CARE):
 
         if self.config.train_loss == 'seg':
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
+            _metrics = [loss_standard]
         elif self.config.train_loss == 'noise2seg':
             loss_standard = eval('loss_noise2seg(alpha={}, relative_weights={})'.format(
                 self.config.n2s_alpha,
@@ -432,13 +432,12 @@ class Noise2Seg(CARE):
             seg_metric = eval('noise2seg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.n2s_alpha,
                                                                                           self.config.relative_weights))
             denoise_metric = eval('noise2seg_denoise_loss(weight={})'.format(self.config.n2s_alpha))
+            _metrics = [loss_standard, seg_metric, denoise_metric]
         else:
             _raise('Unknown Loss!')
 
-        def alpha_monitor(y_true, y_pred):
-            return self.alpha
-
-        _metrics = [loss_standard, seg_metric, denoise_metric, alpha_monitor]
+        seg_denoise_ratio = seg_denoise_ratio_monitor()
+        _metrics.append(seg_denoise_ratio)
         callbacks = [TerminateOnNaN()]
 
         # compile model
