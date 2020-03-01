@@ -1,21 +1,12 @@
-# Noise2Seg
-Recent works have shown how image denoising prior to segmentation can enable better segmentation, 
-especially in the presence of low amount of annotated training data for training a segmentation 
-network. In this work, we handle both denosing and segmentation in a joint framework rather than 
-using denoising as just a preprocessing block. We show that the synergy between denoising and 
-segmentatioon taks can be harvested better when treating them together. To this end, we propose 
-a novel end-to-end deep learning based joint training scheme. Our framework is based on 
-unsupervised denoising scheme called Noise2Void which can use all available noisy data for
-training a neural network. We extend Noise2Void denoising loss with a 3-class segmentation loss 
-for jointly training a deep learning network in an end-to-end manner. We show that this enables 
-the joint network to generalize better for segmetation tasks and outperforms all other methods 
-which treat denoising and segmentation as two step problem. We also investigate the relative 
-importance of denoising and segmentation parts during the joint training and report the best 
-schedules for weighting these two tasks during joint learning. Our results show that our proposed 
-joint training can greatly benefit segmentation across different noise regimes, especially when 
-only little annotated training data is available. We belive our approach enables efficient 
-training of deep learning based segmentation networks by addressing the central bottleneck of 
-needing huge amounts of annotated data during training.
+# DenoiSeg
+Microscopy image analysis often requires the segmentation of objects, but training data for such a task is hard to obtain.
+Here we propose \DenoiSeg, a new method that can be trained end-to-end on only a few annotated ground truth segmentations. 
+We achieve this by extending \NoiseVoid\cite{krull2019noise2void}, a self-supervised denoising scheme that can be trained on noisy images, to also predict dense 3-class segmentations. 
+The reason for the success of our method is that segmentation can profit from denoising especially when performed within the same network jointly.
+The network becomes a denoising expert by seeing all available raw data, while  co-learning to segment even if only a few segmentation labels are available.
+This hypothesis is additionally fueled by our observation that the best segmentation results on high quality (virtually noise free) raw data are performed when moderate amounts of synthetic noise are added. 
+This renders the denoising-task non-trivial and unleashes the co-learning effect.
+We believe that \DenoiSeg offers a viable way to circumvent the tremendous hunger for high quality training data and effectively enables few-shot learning of dense segmentations.
 
 ## How to run
 ### Conda-Env
