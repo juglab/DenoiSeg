@@ -1,7 +1,7 @@
 # DenoiSeg
 Microscopy image analysis often requires the segmentation of objects, but training data for such a task is hard to obtain.
 Here we propose DenoiSeg, a new method that can be trained end-to-end on only a few annotated ground truth segmentations. 
-We achieve this by extending NoiseVoid, a self-supervised denoising scheme that can be trained on noisy images, to also predict dense 3-class segmentations. 
+We achieve this by extending Noise2Void, a self-supervised denoising scheme that can be trained on noisy images, to also predict dense 3-class segmentations. 
 The reason for the success of our method is that segmentation can profit from denoising especially when performed within the same network jointly.
 The network becomes a denoising expert by seeing all available raw data, while  co-learning to segment even if only a few segmentation labels are available.
 This hypothesis is additionally fueled by our observation that the best segmentation results on high quality (virtually noise free) raw data are performed when moderate amounts of synthetic noise are added. 
