@@ -110,14 +110,14 @@ def read_Noise2Seg_bestAlpha_results(pre, exp, measure='SEG', runs=[1,2,3,4,5],
             best_score = 0
             best_alpha = 0
             for alpha in alphas:
-                score = get_measure(pre + str(alpha), exp, run=r, fraction=frac, measure=measure, score_type="validation_", path_str=path_str)
+                score = get_measure(pre + str(alpha), exp, run=r, fraction=frac, measure=measure, score_type="", path_str=path_str)
                 if score > best_score:
                     best_score = score
                     best_alpha = alpha
             
             # read best score from test-data with this best_alpha
             best_alphas_fraction.append(best_alpha)
-            scores.append(get_measure(pre + str(best_alpha), exp, run=r, fraction=frac, measure=measure, score_type="", path_str=path_str))
+            scores.append(best_score)
         best_alphas.append(best_alphas_fraction)    
             
         scores = np.array(scores)
