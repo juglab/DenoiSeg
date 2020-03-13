@@ -1,8 +1,8 @@
 import numpy as np
 
 
-def get_measure(pre, exp, run=1, fraction=0.5, measure='SEG', score_type='validation_', 
-                path_str='/home/prakash/Desktop/fileserver_Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
+def get_measure(pre, exp, run=1, fraction=0.5, measure='SEG', score_type='validation_',
+                path_str = '/home/tibuch/Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
     """
     Load scores of one experiment.
     
@@ -35,7 +35,7 @@ def get_measure(pre, exp, run=1, fraction=0.5, measure='SEG', score_type='valida
 
 def read_Noise2Seg_results(pre, exp, measure='SEG', runs=[1,2,3,4,5], 
                            fractions=[0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 100.0], score_type='validation_',
-                           path_str='/home/prakash/Desktop/fileserver_Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
+                           path_str='/home/tibuch/Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
     """
     Load scores of a given set of experiments and compute mean and standard error of the mean over all runs. 
     
@@ -75,7 +75,7 @@ def read_Noise2Seg_results(pre, exp, measure='SEG', runs=[1,2,3,4,5],
 def read_Noise2Seg_bestAlpha_results(pre, exp, measure='SEG', runs=[1,2,3,4,5],
                                      fractions=[0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 100.0], 
                                      alphas=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-                                     path_str='/home/prakash/Desktop/fileserver_Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
+                                     path_str='/home/tibuch/Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
     """
     Load the experiment which performs best on the test-data. This computes an upper-bound of our method. 
     
@@ -132,27 +132,19 @@ def fraction_to_abs(fracs, max_num_imgs=3800):
     """
     return np.round(max_num_imgs*fracs/100)
 
-
-def load_vanillaBaseline_n0(path_str='/home/prakash/Desktop/fileserver_Noise2Seg/VoidSeg_Baselines/finDepth4_dsb_n0_run{}baseline/train_{}/seg_scores.dat'):
+def read_voidseg_results(name, path_str = '/home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/'):
+    
     """
-    Code to load the vanilla baseline from VoidSeg.
+    Code to read the vanilla baseline from VoidSeg text files.
     
     Parameters:
     name: str
         Name of the experiment/.txt file. 
+    path_str: str
+        Path to the text files. Default: /home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/
     """
     content = []
-    with open('/home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/' + name) as f:
-        line = f.readline()
-        while line:
-            
-            content.append([float(x) for x in line.strip().split(" ")])
-            line = f.readline()
-    return np.array(content)
-
-def read_voidseg_results(name):
-    content = []
-    with open('/home/prakash/Desktop/fileserver_Noise2Seg/VoidSeg_Baselines/machine_readable/' + name) as f:
+    with open(path_str + name) as f:
         line = f.readline()
         while line:
             
