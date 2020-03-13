@@ -131,25 +131,25 @@ def fraction_to_abs(fracs, max_num_imgs=3800):
     Convert fractions to absolute number of images.
     """
     return np.round(max_num_imgs*fracs/100)
-
-
-def load_vanillaBaseline_n0(path_str='/home/tibuch/Noise2Seg/VoidSeg_Baselines/finDepth4_dsb_n0_run{}baseline/train_{}/seg_scores.dat'):
-    """
-    Code to load the vanilla baseline from VoidSeg.
+  
+ 
+def read_voidseg_results(name):
+  
+  """
+    Code to read the vanilla baseline from VoidSeg text files.
     
     Parameters:
-    path_str: str
-        Path to the experiments. Default: '/home/tibuch/Noise2Seg/VoidSeg_Baselines/finDepth4_dsb_n0_run{}baseline/train_{}/seg_scores.dat'
+    name: str
+        Name of the experiment/.txt file. 
     """
-    stats = []
-    for f in [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 100.0]:
-        scores = []
-        for r in [1,2,3,4,5]:
-            scores.append(np.load(path_str.format(r, f), allow_pickle=True)[1])
-        
-        stats.append([fraction_to_abs(f, max_num_imgs=3800), np.mean(scores), np.std(scores)/np.sqrt(5)])
-                
-    return np.array(stats)
+    content = []
+    with open('/home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/' + name) as f:
+        line = f.readline()
+        while line:
+            
+            content.append([float(x) for x in line.strip().split(" ")])
+            line = f.readline()
+    return np.array(content)
 
 
 def cm2inch(*tupl, scale=3):
