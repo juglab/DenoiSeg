@@ -1,8 +1,8 @@
 import numpy as np
 
 
-def get_measure(pre, exp, run=1, fraction=0.5, measure='SEG', score_type='validation_', 
-                path_str='/home/tibuch/Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
+def get_measure(pre, exp, run=1, fraction=0.5, measure='SEG', score_type='validation_',
+                path_str = '/home/tibuch/Noise2Seg/experiments/{}_{}_run{}/fraction_{}/{}scores.csv'):
     """
     Load scores of one experiment.
     
@@ -131,19 +131,20 @@ def fraction_to_abs(fracs, max_num_imgs=3800):
     Convert fractions to absolute number of images.
     """
     return np.round(max_num_imgs*fracs/100)
-  
- 
-def read_voidseg_results(name):
-  
-  """
+
+def read_voidseg_results(name, path_str = '/home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/'):
+    
+    """
     Code to read the vanilla baseline from VoidSeg text files.
     
     Parameters:
     name: str
         Name of the experiment/.txt file. 
+    path_str: str
+        Path to the text files. Default: /home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/
     """
     content = []
-    with open('/home/tibuch/Noise2Seg/VoidSeg_Baselines/machine_readable/' + name) as f:
+    with open(path_str + name) as f:
         line = f.readline()
         while line:
             
