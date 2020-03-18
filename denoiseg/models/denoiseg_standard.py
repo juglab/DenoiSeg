@@ -14,21 +14,21 @@ from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
 
-from noise2seg.models import Noise2SegConfig
-from noise2seg.utils.compute_precision_threshold import isnotebook, compute_labels
-from ..internals.N2S_DataWrapper import N2S_DataWrapper
-from noise2seg.internals.losses import loss_noise2seg, noise2seg_denoise_loss, noise2seg_seg_loss, seg_denoise_ratio_monitor
+from denoiseg.models import DenoiSegConfig
+from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
+from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
+from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss, seg_denoise_ratio_monitor
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
 
 
-class Noise2Seg(CARE):
+class DenoiSeg(CARE):
     """The training scheme to train a standard 3-class segmentation network.
         Uses a convolutional neural network created by :func:`csbdeep.internals.nets.custom_unet`.
         Parameters
         ----------
-        config : :class:`voidseg.models.seg_config` or None
-            Valid configuration of Seg network (see :func:`SegConfig.is_valid`).
+        config : :class:`denoiseg.models.denoiseg_config` or None
+            Valid configuration of Seg network (see :func:`denoiseg_config.is_valid`).
             Will be saved to disk as JSON (``config.json``).
             If set to ``None``, will be loaded from disk (must exist).
         name : str or None
@@ -44,10 +44,10 @@ class Noise2Seg(CARE):
             Illegal arguments, including invalid configuration.
         Example
         -------
-        >>> model = Noise2Seg(config, 'my_model')
+        >>> model = DenoiSeg(config, 'my_model')
         Attributes
         ----------
-        config : :class:`voidseg.models.seg_config`
+        config : :class:`denoiseg.models.denoiseg_config`
             Configuration of Seg trainable CARE network, as provided during instantiation.
         keras_model : `Keras model <https://keras.io/getting-started/functional-api-guide/>`_
             Keras neural network model.
@@ -59,7 +59,7 @@ class Noise2Seg(CARE):
 
     def __init__(self, config, name=None, basedir='.'):
         """See class docstring"""
-        config is None or isinstance(config, Noise2SegConfig) or _raise(ValueError('Invalid configuration: %s' % str(config)))
+        config is None or isinstance(config, DenoiSegConfig) or _raise(ValueError('Invalid configuration: %s' % str(config)))
         if config is not None and not config.is_valid():
             invalid_attr = config.is_valid(True)[1]
             raise ValueError('Invalid configuration attributes: ' + ', '.join(invalid_attr))
@@ -178,13 +178,13 @@ class Noise2Seg(CARE):
 
         # Here we prepare the Noise2Void data. Our input is the noisy data X and as target we take X concatenated with
         # a masking channel. The N2V_DataWrapper will take care of the pixel masking and manipulating.
-        training_data = N2S_DataWrapper(X=X,
-                                        n2v_Y=np.concatenate((X, np.zeros(X.shape, dtype=X.dtype)), axis=axes.index('C')),
-                                        seg_Y=Y,
-                                        batch_size=self.config.train_batch_size,
-                                        perc_pix=self.config.n2v_perc_pix,
-                                        shape=self.config.n2v_patch_shape,
-                                        value_manipulation=manipulator)
+        training_data = DenoiSeg_DataWrapper(X=X,
+                                             n2v_Y=np.concatenate((X, np.zeros(X.shape, dtype=X.dtype)), axis=axes.index('C')),
+                                             seg_Y=Y,
+                                             batch_size=self.config.train_batch_size,
+                                             perc_pix=self.config.n2v_perc_pix,
+                                             shape=self.config.n2v_patch_shape,
+                                             value_manipulation=manipulator)
 
         # validation_Y is also validation_X plus a concatenated masking channel.
         # To speed things up, we precompute the masking vo the validation data.
@@ -196,14 +196,6 @@ class Noise2Seg(CARE):
                                       value_manipulation=manipulator)
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
-
-        # Add alpha-scheduling
-        cross_point = self.config.n2s_alpha
-        def scheduling(epoch):
-            return np.clip(1 - epoch/(self.config.train_epochs - 1) * 0.5/cross_point, 0, 1)
-
-        alphaScheduling = AlphaScheduling(self.alpha, scheduling)
-        self.callbacks.append(alphaScheduling)
 
         history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
@@ -425,13 +417,13 @@ class Noise2Seg(CARE):
         if self.config.train_loss == 'seg':
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
             _metrics = [loss_standard]
-        elif self.config.train_loss == 'noise2seg':
-            loss_standard = eval('loss_noise2seg(alpha={}, relative_weights={})'.format(
-                self.config.n2s_alpha,
+        elif self.config.train_loss == 'denoiseg':
+            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={})'.format(
+                self.config.denoiseg_alpha,
                 self.config.relative_weights))
-            seg_metric = eval('noise2seg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.n2s_alpha,
+            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.denoiseg_alpha,
                                                                                           self.config.relative_weights))
-            denoise_metric = eval('noise2seg_denoise_loss(weight={})'.format(self.config.n2s_alpha))
+            denoise_metric = eval('denoiseg_denoise_loss(weight={})'.format(self.config.denoiseg_alpha))
             _metrics = [loss_standard, seg_metric, denoise_metric]
         else:
             _raise('Unknown Loss!')
@@ -474,4 +466,4 @@ class Noise2Seg(CARE):
 
     @property
     def _config_class(self):
-        return Noise2SegConfig
+        return DenoiSegConfig

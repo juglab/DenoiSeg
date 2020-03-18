@@ -29,25 +29,25 @@ def loss_seg(relative_weights):
     return seg_crossentropy
 
 
-def loss_noise2seg(alpha=0.5, relative_weights=[1.0, 1.0, 5.0]):
+def loss_denoiseg(alpha=0.5, relative_weights=[1.0, 1.0, 5.0]):
     """
-    Calculate noise2seg loss which is a weighted sum of segmentation- and
+    Calculate DenoiSeg loss which is a weighted sum of segmentation- and
     noise2void-loss
 
     :param lambda_: relative weighting, 0 means denoising, 1 means segmentation; (Default: 0.5)
     :param relative_weights: Segmentation class weights (background, foreground, border); (Default: [1.0, 1.0, 5.0])
-    :return: noise2seg loss
+    :return: DenoiSeg loss
     """
-    denoise_loss = noise2seg_denoise_loss(weight=alpha)
-    seg_loss = noise2seg_seg_loss(weight=(1 - alpha), relative_weights=relative_weights)
+    denoise_loss = denoiseg_denoise_loss(weight=alpha)
+    seg_loss = denoiseg_seg_loss(weight=(1 - alpha), relative_weights=relative_weights)
 
-    def noise2seg(y_true, y_pred):
+    def denoiseg(y_true, y_pred):
         return seg_loss(y_true, y_pred) + denoise_loss(y_true, y_pred)
 
-    return noise2seg
+    return denoiseg
 
 
-def noise2seg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
+def denoiseg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
     class_weights = tf.constant([relative_weights])
 
     def seg_loss(y_true, y_pred):
@@ -69,7 +69,7 @@ def noise2seg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
     return seg_loss
 
 
-def noise2seg_denoise_loss(weight=0.5):
+def denoiseg_denoise_loss(weight=0.5):
     n2v_mse_loss = n2v_loss()
 
     def denoise_loss(y_true, y_pred):

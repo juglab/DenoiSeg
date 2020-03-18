@@ -1,4 +1,4 @@
-from noise2seg.models import Noise2Seg, Noise2SegConfig
+from denoiseg.models import DenoiSeg, DenoiSegConfig
 from skimage import io
 import csv
 import numpy as np
@@ -6,8 +6,8 @@ import pickle
 import os
 from os.path import join, exists
 from os import makedirs as mkdir
-from noise2seg.utils.seg_utils import *
-from noise2seg.utils.compute_precision_threshold import measure_precision, measure_seg
+from denoiseg.utils.seg_utils import *
+from denoiseg.utils.compute_precision_threshold import measure_precision, measure_seg
 import argparse
 import json
 
@@ -40,7 +40,7 @@ def main():
 
     # load model
 
-    n2s_model = Noise2Seg(None, conf['model_name'], conf['basedir'])
+    n2s_model = DenoiSeg(None, conf['model_name'], conf['basedir'])
 
     # compute AP results
     ap_threshold, validation_ap_score = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_precision())

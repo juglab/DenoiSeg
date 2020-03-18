@@ -1,8 +1,8 @@
-License for Noise2Seg
+License for DenoiSeg
 
 BSD 3-Clause License
 
-Copyright (c) 2019 JugLab
+Copyright (c) 2020 JugLab
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
