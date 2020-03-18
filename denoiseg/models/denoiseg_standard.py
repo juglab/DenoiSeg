@@ -251,6 +251,80 @@ class DenoiSeg(CARE):
                 from csbdeep.utils.tf import CARETensorBoard
 
                 class SegTensorBoard(CARETensorBoard):
+                    def set_model(self, model):
+                        self.model = model
+                        self.sess = K.get_session()
+                        tf_sums = []
+
+                        if self.compute_histograms and self.freq and self.merged is None:
+                            for layer in self.model.layers:
+                                for weight in layer.weights:
+                                    tf_sums.append(tf.compat.v1.summary.histogram(weight.name, weight))
+
+                                if hasattr(layer, 'output'):
+                                    tf_sums.append(tf.compat.v1.summary.histogram('{}_out'.format(layer.name),
+                                                                        layer.output))
+
+                        def _gt_shape(output_shape):
+                            return list(output_shape[:-1]) + [1]
+
+                        self.gt_outputs = [K.placeholder(shape=_gt_shape(K.int_shape(x))) for x in self.model.outputs]
+
+                        n_inputs, n_outputs = len(self.model.inputs), len(self.model.outputs)
+                        image_for_inputs = np.arange(
+                            n_inputs) if self.image_for_inputs is None else self.image_for_inputs
+                        image_for_outputs = np.arange(
+                            n_outputs) if self.image_for_outputs is None else self.image_for_outputs
+
+                        input_slices = (slice(None),) if self.input_slices is None else self.input_slices
+                        output_slices = (slice(None),) if self.output_slices is None else self.output_slices
+                        if isinstance(input_slices[0], slice):  # apply same slices to all inputs
+                            input_slices = [input_slices] * len(image_for_inputs)
+                        if isinstance(output_slices[0], slice):  # apply same slices to all outputs
+                            output_slices = [output_slices] * len(image_for_outputs)
+                        len(input_slices) == len(image_for_inputs) or _raise(ValueError())
+                        len(output_slices) == len(image_for_outputs) or _raise(ValueError())
+
+                        def _name(prefix, layer, i, n, show_layer_names=False):
+                            return '{prefix}{i}{name}'.format(
+                                prefix=prefix,
+                                i=(i if n > 1 else ''),
+                                name='' if (layer is None or not show_layer_names) else '_' + ''.join(
+                                    layer.name.split(':')[:-1]),
+                            )
+
+                        # inputs
+                        for i, sl in zip(image_for_inputs, input_slices):
+                            layer_name = _name('net_input', self.model.inputs[i], i, n_inputs)
+                            input_layer = self.model.inputs[i][tuple(sl)]
+                            tf_sums.append(tf.compat.v1.summary.image(layer_name, input_layer, max_outputs=self.n_images))
+
+                        # outputs
+                        for i, sl in zip(image_for_outputs, output_slices):
+                            # target
+                            output_layer = self.gt_outputs[i][tuple(sl)]
+                            layer_name = _name('net_target', self.model.outputs[i], i, n_outputs)
+                            tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
+                            # prediction
+                            denoised_layer = self.model.outputs[i][..., :1][tuple(sl)]
+                            foreground_layer = self.model.outputs[i][..., 2:3][tuple(sl)]
+                            foreground_layer = K.cast(K.greater(foreground_layer, 0.5), tf.float32)
+
+                            denoised_name = _name('net_output_denoised', self.model.outputs[i], i, n_outputs)
+                            foreground_name = _name('net_output_foreground_threshold.5', self.model.outputs[i], i, n_outputs)
+                            tf_sums.append(tf.compat.v1.summary.image(denoised_name, denoised_layer, max_outputs=self.n_images))
+                            tf_sums.append(tf.compat.v1.summary.image(foreground_name, foreground_layer, max_outputs=self.n_images))
+
+                        with tf.name_scope('merged'):
+                            self.merged = tf.compat.v1.summary.merge(tf_sums)
+
+                        with tf.name_scope('summary_writer'):
+                            if self.write_graph:
+                                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir,
+                                                                    self.sess.graph)
+                            else:
+                                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir)
+
                     def on_epoch_end(self, epoch, logs=None):
                         logs = logs or {}
 
@@ -265,9 +339,7 @@ class DenoiSeg(CARE):
                                     val_data += self.validation_data[-1:]
                                 else:
                                     val_data = list(v[:self.n_images] for v in self.validation_data)
-                                # GIT issue 20: We need to remove the masking component from the validation data to prevent crash.
-                                end_index = (val_data[1].shape)[-1] // 2
-                                val_data[1] = val_data[1][..., :end_index]
+                                val_data[1] = val_data[1][..., 3:4]
                                 feed_dict = dict(zip(tensors, val_data))
                                 result = self.sess.run([self.merged], feed_dict=feed_dict)
                                 summary_str = result[0]
