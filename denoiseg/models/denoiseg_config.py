@@ -141,7 +141,7 @@ class DenoiSegConfig(argparse.Namespace):
             self.train_checkpoint = 'weights_best.h5'
             self.train_checkpoint_last  = 'weights_last.h5'
             self.train_checkpoint_epoch = 'weights_now.h5'
-            self.train_reduce_lr = {'monitor': 'val_seg_loss', 'factor': 0.5, 'patience': 10}
+            self.train_reduce_lr = {'monitor': 'val_loss', 'factor': 0.5, 'patience': 10}
             self.batch_norm = True
             self.n2v_perc_pix = 1.5
             self.n2v_patch_shape = (64, 64) if self.n_dim == 2 else (64, 64, 64)

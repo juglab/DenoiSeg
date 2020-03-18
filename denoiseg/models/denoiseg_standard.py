@@ -17,7 +17,7 @@ from six import string_types
 from denoiseg.models import DenoiSegConfig
 from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
-from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss, seg_denoise_ratio_monitor
+from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
 
@@ -428,8 +428,6 @@ class DenoiSeg(CARE):
         else:
             _raise('Unknown Loss!')
 
-        seg_denoise_ratio = seg_denoise_ratio_monitor()
-        _metrics.append(seg_denoise_ratio)
         callbacks = [TerminateOnNaN()]
 
         # compile model
