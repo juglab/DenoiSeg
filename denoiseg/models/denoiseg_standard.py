@@ -21,6 +21,8 @@ from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, deno
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
 
+from csbdeep.utils.tf import tf_normalize_layer
+
 
 class DenoiSeg(CARE):
     """The training scheme to train a standard 3-class segmentation network.
@@ -267,7 +269,7 @@ class DenoiSeg(CARE):
                                     val_data = list(v[:self.n_images] for v in self.validation_data)
                                 # GIT issue 20: We need to remove the masking component from the validation data to prevent crash.
                                 end_index = (val_data[1].shape)[-1] // 2
-                                val_data[1] = val_data[1][..., :end_index]
+                                val_data[1] = np.concatenate([val_data[1][..., :1], val_data[1][..., 2:]], axis=-1)
                                 feed_dict = dict(zip(tensors, val_data))
                                 result = self.sess.run([self.merged], feed_dict=feed_dict)
                                 summary_str = result[0]
