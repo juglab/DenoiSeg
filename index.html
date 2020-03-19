@@ -1,0 +1,576 @@
+<script src="http://www.google.com/jsapi" type="text/javascript"></script> 
+<script type="text/javascript">google.load("jquery", "1.3.2");</script>
+
+<style type="text/css">
+	body {
+		font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif; 
+		font-weight:300;
+		font-size:18px;
+		margin-left: auto;
+		margin-right: auto;
+		width: 1100px;
+	}
+	
+	h1 {
+		font-weight:300;
+	}
+	
+	.disclaimerbox {
+		background-color: #eee;		
+		border: 1px solid #eeeeee;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+		padding: 20px;
+	}
+
+	video.header-vid {
+		height: 140px;
+		border: 1px solid black;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	img.header-img {
+		height: 140px;
+		border: 1px solid black;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	img.rounded {
+		border: 1px solid #eeeeee;
+		border-radius: 10px ;
+		-moz-border-radius: 10px ;
+		-webkit-border-radius: 10px ;
+	}
+	
+	a:link,a:visited
+	{
+		color: #1367a7;
+		text-decoration: none;
+	}
+	a:hover {
+		color: #208799;
+	}
+	
+	td.dl-link {
+		height: 160px;
+		text-align: center;
+		font-size: 22px;
+	}
+	
+	.layered-paper-big { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		        0px 0px 1px 1px rgba(0,0,0,0.35), /* The top layer shadow */
+		        5px 5px 0 0px #fff, /* The second layer */
+		        5px 5px 1px 1px rgba(0,0,0,0.35), /* The second layer shadow */
+		        10px 10px 0 0px #fff, /* The third layer */
+		        10px 10px 1px 1px rgba(0,0,0,0.35), /* The third layer shadow */
+		        15px 15px 0 0px #fff, /* The fourth layer */
+		        15px 15px 1px 1px rgba(0,0,0,0.35), /* The fourth layer shadow */
+		        20px 20px 0 0px #fff, /* The fifth layer */
+		        20px 20px 1px 1px rgba(0,0,0,0.35), /* The fifth layer shadow */
+		        25px 25px 0 0px #fff, /* The fifth layer */
+		        25px 25px 1px 1px rgba(0,0,0,0.35); /* The fifth layer shadow */
+		margin-left: 10px;
+		margin-right: 45px;
+	}
+
+	.paper-big { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		        0px 0px 1px 1px rgba(0,0,0,0.35); /* The top layer shadow */
+
+		margin-left: 10px;
+		margin-right: 45px;
+	}
+
+
+	.layered-paper { /* modified from: http://css-tricks.com/snippets/css/layered-paper/ */
+		box-shadow:
+		        0px 0px 1px 1px rgba(0,0,0,0.35), /* The top layer shadow */
+		        5px 5px 0 0px #fff, /* The second layer */
+		        5px 5px 1px 1px rgba(0,0,0,0.35), /* The second layer shadow */
+		        10px 10px 0 0px #fff, /* The third layer */
+		        10px 10px 1px 1px rgba(0,0,0,0.35); /* The third layer shadow */
+		margin-top: 5px;
+		margin-left: 10px;
+		margin-right: 30px;
+		margin-bottom: 5px;
+	}
+	
+	.vert-cent {
+		position: relative;
+	    top: 50%;
+	    transform: translateY(-50%);
+	}
+	
+	hr
+	{
+		border: 0;
+		height: 1px;
+		background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
+	}
+</style>
+
+<html>
+  <head>
+		<title>DenoiSeg: Joint Denoising and Segmentation</title>
+		<meta property="og:image" content="https://juglab.github.io/DenoiSeg/resources/Teaser.pdf"/>
+		<meta property="og:title" content="DenoiSeg: Joint Denoising and Segmentation" />
+  </head>
+
+  <body>
+    <br>
+          <center>
+          	<span style="font-size:42px">DenoiSeg: Joint Denoising and Segmentation</span>
+	  		  <table align=center width=800px>
+	  			  <tr>
+	  	              <td align=center width=600px>
+	  					<center>
+	  						<span style="font-size:23px"><a href="https://tibuch.github.io/">Tim-Oliver Buccholz<sup>*</sup></span>
+		  		  		</center>
+		  		  	  </td>
+	  	              <td align=center width=600px>
+	  					<center>
+	  						<span style="font-size:23px"><a href="https://mangalp.github.io/">Mangal Prakash<sup>*</sup></span>
+		  		  		</center>
+		  		  	  </td>
+	  	              <td align=center width=400px>
+	  					<center>
+	  						<span style="font-size:23px"><a href="https://alex-krull.github.io/aboutMe/">Alexander Krull</a></span>
+		  		  		</center>
+		  		  	  </td>
+	  	              <td align=center width=400px>
+	  					<center>
+	  						<span style="font-size:23px"><a href="https://www.mpi-cbg.de/research-groups/current-groups/florian-jug/group-leader/">Florian Jug</a></span>
+		  		  		</center>
+		  		  	  </td>
+			  </table>
+			  
+			  <table align=center width=700px>
+			         <tr>
+			          <td align=center width=100px>
+			          <center>
+			            <span style="font-size:15px"><sup>*</sup> Equal Contribution (Alphabetical order)</span>
+			          </center>
+				  </td>
+			       </tr>
+			      </table>
+
+	  		  <table align=center width=650px>
+	  			  <tr>
+	  	              
+	  	              <td align=center width=150px>
+	  					<center>
+	  						<span style="font-size:23px"><a href='https://github.com/juglab/DenoiSeg'> [GitHub]</a></span>
+		  		  		</center>
+		  		  	  </td>
+	  	              <td align=center width=150px>
+	  					<center>
+	  						<span style="font-size:23px"><a href=''> [Slides]</a></span>
+		  		  		</center>
+		  		  	  </td>
+	  	              <td align=center width=150px>
+	  					<center>
+	  						<span style="font-size:23px"><a href=''> [Paper]</a></span>
+		  		  		</center>
+		  		  	  </td>
+
+		  		  	 </tr>
+	  			  <tr>
+			  </table>
+  		  <br>
+  		  <table align=center width=850px>
+  			  <tr>
+  	              <td width=100px>
+  					<center>
+  	                	<a href=""><img class="rounded" src = "./resources/images/Teaser.pdf" height="250px"></img></href></a><br>
+					</center>
+  	              </td>
+                </tr>
+  	              <td width=400px>
+  					<p align="justify">
+  	                	<span style="font-size:14px"><i>The proposed DenoiSeg training scheme. A U-Net is trained with a joint self-supervised denoising loss and a 						classical segmentation loss. Both losses are weighted with respect to each other by a hyperparameter <img src="./resources/images/alpha.png" height="10px" />. In 						this example, <img src="./resources/images/ld.png" height = "11px" /> can be computed on all 3800 training patches, while 
+						<img src="./resources/images/ls.png" height = "11px" /> can only be computed on the 10 available annotated ground truth patches that are available for 						segmentation. To check the performance, see the <a href="#qualitative_results"> <b> Qualitative results</b></a> section.</i>
+					</p>
+  	              </td>
+
+  		  </table>
+
+      	  <br>
+		  <hr>
+			<div class="disclaimerbox">
+	  		  <!-- <center><h2>How to interpret the results</h2></center> -->
+
+	  		 <span style="color:#646464">
+	  		  	<center><span style="font-size:28px"><b>How to use DenoiSeg</b></span></center>
+
+	  		  	<br>
+				<p align="justify">
+				<i> Welcome! We believe our work is a significant step forward in solving the problem of biomedical image segmentation when not many annoated ground truth images are available for training Deep Learning networks. We provide our results on three diverse datasets which can be downloaded <a href="https://github.com/juglab/DenoiSeg/wiki">here </a>. The results reported in our paper can be reproduced with the notebooks <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D"> here</a>. Some qualitative and quantitative segmentation results  can be found <a href="#vgg_res">below</a>. Please enjoy our results, and if you're so inclined, <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D">try the notebooks</a> yourself</i>!
+			</p>
+				
+			</span>
+
+			</div>
+  		  <br><br>
+		  <hr>
+
+
+  		  <table align=center width=850px>
+	  		  <center><h1>Abstract</h1></center>
+	  		  <tr>
+	  		  	<td>
+<!-- 					Given a grayscale photograph as input, this paper attacks the problem of hallucinating a <i>plausible</i> color version of the photograph. This problem is clearly underconstrained, so previous approaches have either relied on significant user interaction or resulted in desaturated colorizations. We propose a fully automatic approach that produces vibrant and realistic colorizations. We embrace the underlying uncertainty of the problem by posing it as a classification task and explore using class-rebalancing at training time to increase the diversity of colors in the result. The system is implemented as a feed-forward operation in a CNN at test time and is trained on over a million color images. We evaluate our algorithm using a "colorization Turing test", asking human subjects to choose between a generated and ground truth color image. Our method successfully fools humans 20% of the time, significantly higher than previous methods. -->
+	  		    </td>
+	  		  </tr>
+			</table>
+					<p align="justify">
+					Microscopy image analysis often requires the segmentation of objects, but training data for this task is typically scarce and hard to obtain.
+					Here we propose DenoiSeg, a new method that can be trained end-to-end on only a few annotated ground truth segmentations. 
+					We achieve this by extending Noise2Void, a self-supervised denoising scheme that can be trained on noisy images alone, to also predict dense  					
+					3-class segmentations. The reason for the success of our method is that segmentation can profit from denoising, especially when performed jointly within the same network.
+					The network becomes a denoising expert by seeing all available raw data, while  co-learning to segment, even if only a few segmentation labels are available.
+					This hypothesis is additionally fueled by our observation that the best segmentation results on high quality (very low noise) raw data are obtained when moderate amounts 					of synthetic noise are added. We believe that DenoiSeg offers a viable way to circumvent the tremendous hunger for high quality training data and effectively enables 					few-shot learning of dense segmentations.
+				</p>
+					
+  		  <br><br>
+		  <hr>
+
+  		  <!-- <table align=center width=550px> -->
+  		  <table align=center width=425px>
+	 		<center><h1>Paper and Supplementary Material</h1></center>
+  			  <tr>
+  	              <!--<td width=300px align=left>-->
+  	              <!-- <a href="http://arxiv.org/pdf/1603.08511.pdf"> -->
+				  <td><a href=""><img class="layered-paper-big" style="height:195px" src="./resources/images/Paper.pdf"/></a></td>
+				  <td><span style="font-size:14pt">Buccholz<sup>*</sup>, Prakash<sup>*</sup>, Krull, Jug.<br>
+				  DenoiSeg: Joint Denoising and Segmentation.<br>
+				  In MICCAI, 2020.<br>
+				  (hosted on <a href="">arXiv</a>)</a>
+				  <span style="font-size:4pt"><a href=""><br></a>
+<!-- 				  <span style="font-size:14pt"><br><b>Primary revisions in v2</b>
+				  <span style="font-size:10pt"><br> &bull; ECCV 2016 Camera Ready
+				  <span style="font-size:10pt"><br> &bull; Self-supervision/representation learning experiments (see <b>Section 3.2</b>) -->
+				  <!-- <br> &bull; Loss function comparisons, with all models re-trained from scratch (see <b>Table 1</b>) -->
+				  </span>
+				  </td>
+  	              </td>
+              </tr>
+  		  </table>
+		  <br>
+
+		  <!-- <br> -->
+<!--   		  <table align=center width=200px>
+			  <tr>
+				  <td><span style="font-size:11pt"><a href="http://arxiv.org/pdf/1603.08511v1.pdf">Previous version [v1] [10MB]</a></td>
+				  <td><span style="font-size:12pt"><a href="./resources/supp.pdf">Additional details [v1] [1MB]</a></td>
+			  </tr>
+			  <tr>
+				  <td><span style="font-size:11pt"><a href="./resources/supp.pdf">Additional details [v1] [1MB]</a></td>
+			  </tr>
+		  </table> -->
+
+		  <table align=center width=600px>
+			  <tr>
+				  <td><span style="font-size:14pt"><center>
+				  	<a href="./resources/bibtex.txt">[Bibtex]</a>
+  	              </center></td>
+              </tr>
+  		  </table>
+
+		  <hr>
+
+  		  <a name="qualitative_results"></a>
+  		  <center><h1>Qualitative Results</h1></center>
+		  <p align="justify">
+  		  We show results on three diverse datasets: DSB 2018, a developing Fly Wing and a Mouse Nuclei dataset. 
+		  For each dataset, we add Gaussian noise with mean 0 and standard deviation 10 and 20. 
+		  The dataset names are accordingly extended by n0, n10 and n20 to indicate the amount of additional noise.
+		  We compare against two baselines: (i) DenoiSeg trained purely for segmentation (referred to as Baseline), and a sequential scheme based on <a 			href="https://arxiv.org/pdf/1911.12239.pdf">Prakash et. al </a> that first trains a denoiser and then the aforementioned baseline (referred to as Sequential).
+		 </p>
+		  <br><br>
+		  
+		  <b>The row below depicts results for all noise levels for the case when only 10, 2 and 2 ground truth segmentation annotations for DSB, Fly Wing and Mouse Nuclei dataset 			respectively are available for training</b>. 
+		  
+		  <br>
+
+    		  <!-- along with miscellaneous photos. -->
+    		  <br>
+    		  <table align=center width=1100px>
+    			  <tr>
+    	              <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction1.pdf'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction1.pdf"><img src = "./resources/images/qualitative_n20_fraction1.pdf" height = "250px"></a><br>
+    					<span style="font-size:14px">(click for full images)</span><br>
+    					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    	              </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction1.pdf'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction1.pdf"><img src = "./resources/images/qualitative_n10_fraction1.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px">Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction1.pdf'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction1.pdf"><img src = "./resources/images/qualitative_n0_fraction1.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+
+                  </tr>
+    		  </table>
+			
+    		  <br>
+			  
+			  <b>The row below depicts results for all noise levels for the case when only 38, 7 and 5 ground truth segmentation annotations for DSB, Fly Wing and Mouse Nuclei dataset 			respectively are available for training</b>.<br>
+			  
+    		  <table align=center width=1100px>
+    			  <tr>
+    	              <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction2.pdf'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction2.pdf"><img src = "./resources/images/qualitative_n20_fraction2.pdf" height = "250px"></a><br>
+    					<span style="font-size:14px">(click for full images)</span><br>
+    					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    	              </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction2.pdf'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction2.pdf"><img src = "./resources/images/qualitative_n10_fraction2.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px"> extension of Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction2.pdf'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction2.pdf"><img src = "./resources/images/qualitative_n0_fraction2.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+
+                  </tr>
+    		  </table>
+
+			  <br>
+			  
+			  <b>The row below depicts results for all noise levels for the case when 304, 29 and 18 ground truth segmentation annotations for DSB, Fly Wing and Mouse Nuclei dataset 			respectively are available for training</b>.<br>
+			  
+    		  <table align=center width=1100px>
+    			  <tr>
+    	              <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction3.pdf'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction3.pdf"><img src = "./resources/images/qualitative_n20_fraction3.pdf" height = "250px"></a><br>
+    					<span style="font-size:14px">(click for full images)</span><br>
+    					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    	              </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction3.pdf'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction3.pdf"><img src = "./resources/images/qualitative_n10_fraction3.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+                    <td width=300px>
+    					<center>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction3.pdf'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction3.pdf"><img src = "./resources/images/qualitative_n0_fraction3.pdf" height = "250px"></a><br>
+  						<span style="font-size:14px">(click for full images)</span><br>
+  	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
+    					</center>
+                    </td>
+
+                  </tr>
+    		  </table>
+
+    		<br><br>
+			
+    	  	<hr>
+
+  		  <a name="perform_comp"></a>
+  		  <center><h1>Quantitative Performance Comparisons</h1></center>
+		  <p align="justify">
+		  
+		  We compare the results of DenoiSeg with the above mentioned baselines in terms of <a href="http://host.robots.ox.ac.uk/pascal/VOC/pubs/everingham10.pdf"> AP</a> score and 
+		  <a href="https://www.nature.com/articles/nmeth.4473"> SEG</a> score. For each dataset and each noise level, the tables below present DenoiSeg setups with different 
+		  values of hyperparameter <img src="./resources/images/alpha.png" height="10px" />. Additionally we also compare to results that use (the a priori unknown) best 		
+		  <img src="./resources/images/alpha.png" height="10px" />. The best <img src="./resources/images/alpha.png" height="10px" /> for each trained network is found by a grid 
+		  search for <img src="./resources/images/alpha.png" height="10px" /> in range [0.1-0.9]. The figures corresponding to the tables below can be found in the <a href="">  paper</a>.
+	  	</p>
+		  
+		  <br><br>
+		  
+  		  AP scores for <b>DSB 2018 n0 </b> dataset. For SEG scores, click <a href="./resources/tables/DSB_n0_SEG.html"> here</a><br>
+  		  <br>
+  		  <table align=center width=1000px>
+  			  <tr>
+  	              <td width=100px>
+  					<center>
+						<iframe src="./resources/tables/DSB_n0_AP.html" height = "185px" width = "790 px"></iframe></a></span><br>
+  						<!-- <span style="font-size:22px"><a href='./resources/tables/DSB_n0_AP.html'></a></span><br> -->
+  	                	<!-- <a href="./resources/tables/DSB_n0_AP.html"><img class="rounded" height = "1000px"></a><br> -->
+  					<!-- <span style="font-size:16px">(hovering shows our results; click for additional examples)</span> -->
+					</center>
+  	              </td>
+                </tr>
+  		  </table>
+		  
+  		  AP scores for <b>DSB 2018 n10 </b> dataset. For SEG scores, click <a href="./resources/tables/DSB_n10_SEG.html"> here</a><br>
+  		  <br>
+  		  <table align=center width=1000px>
+  			  <tr>
+  	              <td width=100px>
+  					<center>
+						<iframe src="./resources/tables/DSB_n10_AP.html" height = "185px" width = "790 px"></iframe></a></span><br>
+  						<!-- <span style="font-size:22px"><a href='./resources/tables/DSB_n0_AP.html'></a></span><br> -->
+  	                	<!-- <a href="./resources/tables/DSB_n0_AP.html"><img class="rounded" height = "1000px"></a><br> -->
+  					<!-- <span style="font-size:16px">(hovering shows our results; click for additional examples)</span> -->
+					</center>
+  	              </td>
+                </tr>
+  		  </table>
+		  
+  		  AP scores for <b>DSB 2018 n20 </b> dataset. For SEG scores, click <a href="./resources/tables/DSB_n20_SEG.html"> here</a><br>
+  		  <br>
+  		  <table align=center width=1000px>
+  			  <tr>
+  	              <td width=100px>
+  					<center>
+						<iframe src="./resources/tables/DSB_n20_AP.html" height = "185px" width = "790 px"></iframe></a></span><br>
+  						<!-- <span style="font-size:22px"><a href='./resources/tables/DSB_n0_AP.html'></a></span><br> -->
+  	                	<!-- <a href="./resources/tables/DSB_n0_AP.html"><img class="rounded" height = "1000px"></a><br> -->
+  					<!-- <span style="font-size:16px">(hovering shows our results; click for additional examples)</span> -->
+					</center>
+  	              </td>
+                </tr>
+  		  </table>
+		  
+		 <br>
+		 
+		 <p align="center">
+		 
+		 For Fly Wing n0 dataset, click <a href="./resources/tables/Flywing_n0_AP.html"> here</a> for AP scores and <a href="./resources/tables/Flywing_n0_SEG.html"> here</a> for SEG scores.
+		 <br>
+		 For Fly Wing n10 dataset, click <a href="./resources/tables/Flywing_n10_AP.html"> here</a> for AP scores and <a href="./resources/tables/Flywing_n10_SEG.html"> here</a> for SEG scores.  <br>
+		 For Fly Wing n20 dataset, click <a href="./resources/tables/Flywing_n20_AP.html"> here</a> for AP scores and <a href="./resources/tables/Flywing_n20_SEG.html"> here</a> for SEG scores.  <br>
+		 For Mouse Nuclei n0 dataset, click <a href="./resources/tables/Mousenuclei_n0_AP.html"> here</a> for AP scores and <a href="./resources/tables/Mousenuclei_n0_SEG.html"> here</a> for SEG scores.  <br>
+		 For Mouse Nuclei n10 dataset, click <a href="./resources/tables/Mousenuclei_n10_AP.html"> here</a> for AP scores and <a href="./resources/tables/Mousenuclei_n10_SEG.html"> here</a> for SEG scores.  <br>
+		 For Mouse Nuclei n20 dataset, click <a href="./resources/tables/Mousenuclei_n20_AP.html"> here</a> for AP scores and <a href="./resources/tables/Mousenuclei_n20_SEG.html"> here</a> for SEG scores.  <br>
+		  
+		</p>
+  		<br><br>  
+		
+		
+		<hr>
+
+		  <!-- <a name="perform_comp"></a>
+		  <center><h1>Quantitative Denoising Comparisons</h1></center>
+
+		  AP scores for <b>DSB 2018 n0 </b> dataset. For SEG scores, click <a href="./resources/tables/Flywing_Denoising.html"> here</a><br>
+		  <br>
+		  <table align=center width=1000px>
+			  <tr>
+	              <td width=100px>
+					<center>
+					<iframe src="./resources/tables/Flywing_Denoising.html" height = "185px" width = "790 px"></iframe></a></span><br>
+
+				</center>
+	              </td>
+              </tr>
+		  </table>
+
+		  AP scores for <b>DSB 2018 n10 </b> dataset. For SEG scores, click <a href="./resources/tables/DSB_n10_SEG.html"> here</a><br>
+		  <br>
+		  <table align=center width=1000px>
+			  <tr>
+	              <td width=100px>
+					<center>
+					<iframe src="./resources/tables/DSB_n10_AP.html" height = "185px" width = "790 px"></iframe></a></span><br>
+
+				</center>
+	              </td>
+              </tr>
+		  </table>
+
+
+
+
+		<hr> -->
+		<br>
+
+  		  <a name="related_work"></a>
+  		  <table align=center width=1100px>
+  			  <tr>
+  	              <td width=400px>
+  					
+	  		  <center><h1>Recent Related Work</h1></center>
+			  
+			  <p align="justify">
+
+	  		  There have been some recent works which leverage denoising for image segmentation when not enough segmentation ground truth is available for training deep learning networks. 			  We would like to direct you to these recent related work for comparison. For a more thorough discussion of related work, please see our 
+			  <a href="">full paper</a>.
+
+	  		  <br><br>
+
+	  		  		<!-- <span style="font-size:24px"><center><b> Previous Work </b> </center></span><br> -->
+					Mangal Prakash, Tim-Oliver Buccholz, Manan Lalit, Pavel Tomancak, Florian Jug<sup>*</sup>, Alexander Krull<sup>*</sup>. 
+					<b>Leveraging Self-Supervised Denoising for Image Segmentation.</b> In <i>ISBI</i>, 2020. <a href="https://arxiv.org/pdf/1911.12239.pdf">[PDF]</a><br>
+
+					Sicheng Wang, Bihan Wen, Junru Wu, Dacheng Tao, Zhangyang Wang. <b>Segmentation-Aware Image Denoising without Knowing True Segmentation.</b> May 2019. <a href="https://arxiv.org/pdf/1905.08965.pdf">[PDF]</a><br>
+					
+				</p>
+
+					<!-- Ding Liu, Bihan Wen, Xianming Liu, Zhangyang Wang, Thomas S. Huang. <b>When Image Denoising Meets High-Level Vision Tasks: A Deep Learning Approach.</b> In <i>IJCAI</i>, 2018. <a href="https://www.ijcai.org/Proceedings/2018/0117.pdf">[PDF]</a><br> -->
+					
+			   		
+				</td>
+			 </tr>
+		 </table>
+
+		  <br>
+		  <hr>
+		  <br>
+		  	
+  		  <table align=center width=1100px>
+  			  <tr>
+  	              <td width=400px>
+  					
+	  		  <center><h1>Acknowledgements</h1></center>
+			  
+			  <p align="justify">
+			  We thank Romina Piscitello and Suzanne Eaton from MPI-CBG for fly wing data and Diana Afonso and Jacqueline Tabler from MPI-CBG for mouse nuclei data. 
+			  We also acknowledge the Scientific Computing Facility at MPI-CBG for giving us access to their HPC cluster.
+		  </p>
+
+		</td>
+			 </tr>
+		</table>
+
+		<br><br>
+
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-75863369-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+              
+</body>
+</html>
+ 
