@@ -1,0 +1,6 @@
+@inproceedings{buccholz2020DenoiSeg,
+  title={DenoiSeg: Joint Denoising and Segmentation},
+  author={Buccholz, Tim-Oliver and Prakash, Mangal and Krull, Alexander, and Jug, Florian},
+  booktitle={MICCAI},
+  year={2020}
+}
