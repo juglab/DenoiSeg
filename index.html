@@ -1,5 +1,11 @@
 <script src="http://www.google.com/jsapi" type="text/javascript"></script> 
 <script type="text/javascript">google.load("jquery", "1.3.2");</script>
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
+</script>
+<script type="text/javascript"
+  src="http://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
 
 <style type="text/css">
 	body {
@@ -118,7 +124,7 @@
 <html>
   <head>
 		<title>DenoiSeg: Joint Denoising and Segmentation</title>
-		<meta property="og:image" content="https://juglab.github.io/DenoiSeg/resources/Teaser.pdf"/>
+		<meta property="og:image" content="https://juglab.github.io/DenoiSeg/resources/Teaser_1.png"/>
 		<meta property="og:title" content="DenoiSeg: Joint Denoising and Segmentation" />
   </head>
 
@@ -130,7 +136,7 @@
 	  			  <tr>
 	  	              <td align=center width=600px>
 	  					<center>
-	  						<span style="font-size:23px"><a href="https://tibuch.github.io/">Tim-Oliver Buccholz<sup>*</sup></span>
+	  						<span style="font-size:23px"><a href="https://tibuch.github.io/">Tim-Oliver Buchholz<sup>*</sup></span>
 		  		  		</center>
 		  		  	  </td>
 	  	              <td align=center width=600px>
@@ -187,14 +193,16 @@
   			  <tr>
   	              <td width=100px>
   					<center>
-  	                	<a href=""><img class="rounded" src = "./resources/images/Teaser.pdf" height="250px"></img></href></a><br>
+  	                	<a href=""><img class="rounded" src = "./resources/images/Teaser_1.png" height="175px"></img></href></a><br>
 					</center>
   	              </td>
                 </tr>
   	              <td width=400px>
   					<p align="justify">
-  	                	<span style="font-size:14px"><i>The proposed DenoiSeg training scheme. A U-Net is trained with a joint self-supervised denoising loss and a 						classical segmentation loss. Both losses are weighted with respect to each other by a hyperparameter <img src="./resources/images/alpha.png" height="10px" />. In 						this example, <img src="./resources/images/ld.png" height = "11px" /> can be computed on all 3800 training patches, while 
-						<img src="./resources/images/ls.png" height = "11px" /> can only be computed on the 10 available annotated ground truth patches that are available for 						segmentation. To check the performance, see the <a href="#qualitative_results"> <b> Qualitative results</b></a> section.</i>
+  	                	<span style="font-size:14px"><i>The proposed DenoiSeg training scheme. A U-Net is trained with a joint self-supervised denoising loss and a 						classical segmentation loss. Both losses are weighted with respect to each other by a hyperparameter $\alpha$. In this example, 
+						$\mathcal{L_{d}}$ can be computed on all 3800 training patches, while 
+						$\mathcal{L_{s}}$ can only be computed on the 10 available annotated ground truth patches that are available for segmentation. To check the performance, see the 
+						<a href="#qualitative_results"> <b> Qualitative results</b></a> section.</i>
 					</p>
   	              </td>
 
@@ -210,7 +218,7 @@
 
 	  		  	<br>
 				<p align="justify">
-				<i> Welcome! We believe our work is a significant step forward in solving the problem of biomedical image segmentation when not many annoated ground truth images are available for training Deep Learning networks. We provide our results on three diverse datasets which can be downloaded <a href="https://github.com/juglab/DenoiSeg/wiki">here </a>. The results reported in our paper can be reproduced with the notebooks <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D"> here</a>. Some qualitative and quantitative segmentation results  can be found <a href="#vgg_res">below</a>. Please enjoy our results, and if you're so inclined, <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D">try the notebooks</a> yourself</i>!
+				<i> Welcome! We believe our work is a significant step forward in solving the problem of biomedical image segmentation when not many annoated ground truth images are available for training Deep Learning networks. We provide our results on three diverse datasets which can be downloaded <a href="https://github.com/juglab/DenoiSeg/wiki">here </a>. The results reported in our paper can be reproduced with the notebooks <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D"> here</a>. Some qualitative and quantitative segmentation results  can be found <a href="#qualitative_results">below</a>. Please enjoy our results, and if you're so inclined, <a href="https://github.com/juglab/DenoiSeg/examples/Noise2Seg_2D">try the notebooks</a> yourself</i>!
 			</p>
 				
 			</span>
@@ -246,8 +254,8 @@
   			  <tr>
   	              <!--<td width=300px align=left>-->
   	              <!-- <a href="http://arxiv.org/pdf/1603.08511.pdf"> -->
-				  <td><a href=""><img class="layered-paper-big" style="height:195px" src="./resources/images/Paper.pdf"/></a></td>
-				  <td><span style="font-size:14pt">Buccholz<sup>*</sup>, Prakash<sup>*</sup>, Krull, Jug.<br>
+				  <td><a href=""><img class="layered-paper-big" style="height:195px" src="./resources/images/Paper.png"/></a></td>
+				  <td><span style="font-size:14pt">Buchholz<sup>*</sup>, Prakash<sup>*</sup>, Krull, Jug.<br>
 				  DenoiSeg: Joint Denoising and Segmentation.<br>
 				  In MICCAI, 2020.<br>
 				  (hosted on <a href="">arXiv</a>)</a>
@@ -304,23 +312,23 @@
     			  <tr>
     	              <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction1.pdf'>n20</a></span><br>
-    	                	<a href="./resources/images/qualitative_n20_fraction1.pdf"><img src = "./resources/images/qualitative_n20_fraction1.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction1.png'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction1.png"><img src = "./resources/images/qualitative_n20_fraction1.png" height = "250px"></a><br>
     					<span style="font-size:14px">(click for full images)</span><br>
     					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     	              </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction1.pdf'>n10</a></span><br>
-                    		<a href="./resources/images/qualitative_n10_fraction1.pdf"><img src = "./resources/images/qualitative_n10_fraction1.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction1.png'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction1.png"><img src = "./resources/images/qualitative_n10_fraction1.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px">Figure 2 from our paper</span></center>
     					</center>
                     </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction1.pdf'>n0</a></span><br>
-                    		<a href="./resources/images/qualitative_n0_fraction1.pdf"><img src = "./resources/images/qualitative_n0_fraction1.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction1.png'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction1.png"><img src = "./resources/images/qualitative_n0_fraction1.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     					</center>
@@ -337,23 +345,23 @@
     			  <tr>
     	              <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction2.pdf'>n20</a></span><br>
-    	                	<a href="./resources/images/qualitative_n20_fraction2.pdf"><img src = "./resources/images/qualitative_n20_fraction2.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction2.png'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction2.png"><img src = "./resources/images/qualitative_n20_fraction2.png" height = "250px"></a><br>
     					<span style="font-size:14px">(click for full images)</span><br>
     					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     	              </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction2.pdf'>n10</a></span><br>
-                    		<a href="./resources/images/qualitative_n10_fraction2.pdf"><img src = "./resources/images/qualitative_n10_fraction2.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction2.png'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction2.png"><img src = "./resources/images/qualitative_n10_fraction2.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px"> extension of Figure 2 from our paper</span></center>
     					</center>
                     </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction2.pdf'>n0</a></span><br>
-                    		<a href="./resources/images/qualitative_n0_fraction2.pdf"><img src = "./resources/images/qualitative_n0_fraction2.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction2.png'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction2.png"><img src = "./resources/images/qualitative_n0_fraction2.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     					</center>
@@ -370,23 +378,23 @@
     			  <tr>
     	              <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction3.pdf'>n20</a></span><br>
-    	                	<a href="./resources/images/qualitative_n20_fraction3.pdf"><img src = "./resources/images/qualitative_n20_fraction3.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n20_fraction3.png'>n20</a></span><br>
+    	                	<a href="./resources/images/qualitative_n20_fraction3.png"><img src = "./resources/images/qualitative_n20_fraction3.png" height = "250px"></a><br>
     					<span style="font-size:14px">(click for full images)</span><br>
     					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     	              </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction3.pdf'>n10</a></span><br>
-                    		<a href="./resources/images/qualitative_n10_fraction3.pdf"><img src = "./resources/images/qualitative_n10_fraction3.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n10_fraction3.png'>n10</a></span><br>
+                    		<a href="./resources/images/qualitative_n10_fraction3.png"><img src = "./resources/images/qualitative_n10_fraction3.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     					</center>
                     </td>
                     <td width=300px>
     					<center>
-    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction3.pdf'>n0</a></span><br>
-                    		<a href="./resources/images/qualitative_n0_fraction3.pdf"><img src = "./resources/images/qualitative_n0_fraction3.pdf" height = "250px"></a><br>
+    						<span style="font-size:22px"><a href='./resources/images/qualitative_n0_fraction3.png'>n0</a></span><br>
+                    		<a href="./resources/images/qualitative_n0_fraction3.png"><img src = "./resources/images/qualitative_n0_fraction3.png" height = "250px"></a><br>
   						<span style="font-size:14px">(click for full images)</span><br>
   	  					<span style="font-size:14px">extension of Figure 2 from our paper</span></center>
     					</center>
@@ -405,9 +413,9 @@
 		  
 		  We compare the results of DenoiSeg with the above mentioned baselines in terms of <a href="http://host.robots.ox.ac.uk/pascal/VOC/pubs/everingham10.pdf"> AP</a> score and 
 		  <a href="https://www.nature.com/articles/nmeth.4473"> SEG</a> score. For each dataset and each noise level, the tables below present DenoiSeg setups with different 
-		  values of hyperparameter <img src="./resources/images/alpha.png" height="10px" />. Additionally we also compare to results that use (the a priori unknown) best 		
-		  <img src="./resources/images/alpha.png" height="10px" />. The best <img src="./resources/images/alpha.png" height="10px" /> for each trained network is found by a grid 
-		  search for <img src="./resources/images/alpha.png" height="10px" /> in range [0.1-0.9]. The figures corresponding to the tables below can be found in the <a href="">  paper</a>.
+		  values of hyperparameter $\alpha$. Additionally we also compare to results that use (the a priori unknown) best 		
+		  $\alpha$. The best $\alpha$ for each trained network is found by a grid 
+		  search for $\alpha \in \{0.1, 0.2, \dots, 0.9\}$. The figures corresponding to the tables below can be found in the <a href="">  paper</a>.
 	  	</p>
 		  
 		  <br><br>
@@ -474,40 +482,6 @@
 		
 		
 		<hr>
-
-		  <!-- <a name="perform_comp"></a>
-		  <center><h1>Quantitative Denoising Comparisons</h1></center>
-
-		  AP scores for <b>DSB 2018 n0 </b> dataset. For SEG scores, click <a href="./resources/tables/Flywing_Denoising.html"> here</a><br>
-		  <br>
-		  <table align=center width=1000px>
-			  <tr>
-	              <td width=100px>
-					<center>
-					<iframe src="./resources/tables/Flywing_Denoising.html" height = "185px" width = "790 px"></iframe></a></span><br>
-
-				</center>
-	              </td>
-              </tr>
-		  </table>
-
-		  AP scores for <b>DSB 2018 n10 </b> dataset. For SEG scores, click <a href="./resources/tables/DSB_n10_SEG.html"> here</a><br>
-		  <br>
-		  <table align=center width=1000px>
-			  <tr>
-	              <td width=100px>
-					<center>
-					<iframe src="./resources/tables/DSB_n10_AP.html" height = "185px" width = "790 px"></iframe></a></span><br>
-
-				</center>
-	              </td>
-              </tr>
-		  </table>
-
-
-
-
-		<hr> -->
 		<br>
 
   		  <a name="related_work"></a>
@@ -525,7 +499,7 @@
 	  		  <br><br>
 
 	  		  		<!-- <span style="font-size:24px"><center><b> Previous Work </b> </center></span><br> -->
-					Mangal Prakash, Tim-Oliver Buccholz, Manan Lalit, Pavel Tomancak, Florian Jug<sup>*</sup>, Alexander Krull<sup>*</sup>. 
+					Mangal Prakash, Tim-Oliver Buchholz, Manan Lalit, Pavel Tomancak, Florian Jug<sup>*</sup>, Alexander Krull<sup>*</sup>. 
 					<b>Leveraging Self-Supervised Denoising for Image Segmentation.</b> In <i>ISBI</i>, 2020. <a href="https://arxiv.org/pdf/1911.12239.pdf">[PDF]</a><br>
 
 					Sicheng Wang, Bihan Wen, Junru Wu, Dacheng Tao, Zhangyang Wang. <b>Segmentation-Aware Image Denoising without Knowing True Segmentation.</b> May 2019. <a href="https://arxiv.org/pdf/1905.08965.pdf">[PDF]</a><br>
@@ -550,7 +524,7 @@
 	  		  <center><h1>Acknowledgements</h1></center>
 			  
 			  <p align="justify">
-			  We thank Romina Piscitello and Suzanne Eaton from MPI-CBG for fly wing data and Diana Afonso and Jacqueline Tabler from MPI-CBG for mouse nuclei data. 
+			  We thank Romina Piscitello-Gomez and Suzanne Eaton from MPI-CBG for fly wing data and Diana Afonso and Jacqueline Tabler from MPI-CBG for mouse nuclei data. 
 			  We also acknowledge the Scientific Computing Facility at MPI-CBG for giving us access to their HPC cluster.
 		  </p>
 
