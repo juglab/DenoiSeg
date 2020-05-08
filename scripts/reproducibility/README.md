@@ -1,4 +1,4 @@
-# Reproducability
+# Reproducibility
 In this sub-directory you can find all scripts and jupyter notebook 
 which we used to produce the results reported in the manuscript. If
 you want to run the exact code we used, you have to use release 
