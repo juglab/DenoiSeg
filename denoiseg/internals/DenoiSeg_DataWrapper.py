@@ -2,7 +2,7 @@ from keras.utils import Sequence
 
 import numpy as np
 
-class N2S_DataWrapper(Sequence):
+class DenoiSeg_DataWrapper(Sequence):
     def __init__(self, X, n2v_Y, seg_Y, batch_size, perc_pix, shape, value_manipulation):
         assert X.shape[0] == n2v_Y.shape[0]
         assert X.shape[0] == seg_Y.shape[0]

@@ -4,26 +4,26 @@ from os import path
 
 _dir = path.abspath(path.dirname(__file__))
 
-with open(path.join(_dir,'noise2seg','version.py')) as f:
+with open(path.join(_dir,'denoiseg','version.py')) as f:
     exec(f.read())
 
 with open(path.join(_dir,'README.md')) as f:
     long_description = f.read()
 
 
-setup(name='noise2seg',
+setup(name='denoiseg',
       version=__version__,
-      description='Noise2Seg',
+      description='DenoiSeg',
       long_description=long_description,
       long_description_content_type='text/markdown',
-      url='https://github.com/juglab/Noise2Seg/',
-      author='Mangal Prakash, Tim-Oliver Buchholz',
-      author_email='prakash@mpi-cbg.de, tibuch@mpi-cbg.de',
+      url='https://github.com/juglab/DenoiSeg/',
+      author='Tim-Oliver Buchholz, Mangal Prakash, Alexander Krull, Florian Jug',
+      author_email='tibuch@mpi-cbg.de, prakash@mpi-cbg.de, krull@mpi-cbg.de, jug@mpi-cbg.de',
       license='BSD 3-Clause License',
       packages=find_packages(),
 
       project_urls={
-          'Repository': 'https://github.com/juglab/Noise2Seg/',
+          'Repository': 'https://github.com/juglab/DenoiSeg/',
       },
 
       classifiers=[

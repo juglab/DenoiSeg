@@ -5,6 +5,7 @@ from distutils.dir_util import copy_tree as copytree
 import glob
 import sys
 from PyInquirer import prompt, Validator, ValidationError
+import numpy as np
 
 import json
 
@@ -21,6 +22,20 @@ def data_path(config):
         raise Exception("No training data available in {}".format(base_path_data))
 
     return l
+
+
+class ValExpName(Validator):
+    def validate(self, document):
+        names = glob.glob(join(base_path_exp, '*'))
+        names = [n.split('/')[-1] for n in names]
+
+        doc_text = document.text.split('run')[0]
+        if doc_text in names:
+            raise ValidationError(
+                message='An experiment with this name already exists. Please choose another name.',
+                cursor_position=len(document.text)
+            )
+
 
 class TrainFracValidator(Validator):
     def validate(self, document):
@@ -45,7 +60,8 @@ def main():
         {
             'type': 'input',
             'name': 'exp_name',
-            'message': 'Experiment name:'
+            'message': 'Experiment name:',
+            'validate': ValExpName
         },
         {
             'type': 'list',
@@ -68,6 +84,43 @@ def main():
             'default': '0.25,0.5,1.0,2.0,4.0,8.0,16.0,32.0,64.0,100.0',
             'validate': TrainFracValidator,
             'filter': lambda val: [float(x) for x in val.split(',')]
+        },
+        {
+            'type': 'input',
+            'name': 'unet_n_depth',
+            'message': 'unet_n_depth',
+            'default': '4',
+            'filter': lambda val: int(val)
+        },
+        {
+            'type': 'input',
+            'name': 'train_epochs',
+            'message': 'train_epochs',
+            'default': '200',
+            'validate': lambda val: int(val) > 0,
+            'filter': lambda val: int(val)
+        },
+        {
+            'type': 'input',
+            'name': 'train_batch_size',
+            'message': 'train_batch_size',
+            'default': '128',
+            'validate': lambda val: int(val) > 0,
+            'filter': lambda val: int(val)
+        },
+        {
+            'type': 'input',
+            'name': 'n2s_alpha',
+            'message': 'Noise2Seg Alpha',
+            'default': '0.5',
+            'validate': lambda val: float(val) >= 0,
+            'filter': lambda val: float(val)
+        },
+        {
+            'type': 'list',
+            'name': 'n2s_monitor',
+            'message': 'Noise2Seg Monitoring',
+            'choices': ['val_loss', 'val_seg_loss', 'val_denoise_loss']
         }
     ]
 
@@ -76,33 +129,39 @@ def main():
     for run_idx in range(1, config['repetitions'] + 1):
         for train_fraction in config['train_frac']:
             run_name = config['exp_name'] + '_run' + str(run_idx)
-            temp_conf = create_configs(config, run_name, seed=run_idx, train_fraction=train_fraction)
-            exp_path = join(base_path_exp, run_name, "fraction_" + str(train_fraction))
-            start_score_evaluation_on_validation_experiment(temp_conf, exp_path, config['data_path'])
+            exp_conf = create_configs(config, run_name, seed=run_idx, train_fraction=train_fraction)
 
+            exp_path = join(base_path_exp, run_name, "fraction_" + str(train_fraction))
+            start_n2s_experiment(exp_conf, exp_path, config['data_path'])
 
 
 def create_configs(config, run_name, seed, train_fraction):
-    temp_conf = {
+    exp_conf = {
         "train_data_path": join("/data", "train", "train_data.npz"),
         "test_data_path": join("/data", "test", "test_data.npz"),
         "exp_dir": join("/notebooks", run_name),
         "fraction": train_fraction,
         "random_seed": seed,
         "model_name": run_name + "_model",
-        "basedir": "/notebooks"
+        "basedir": "/notebooks",
+        "train_epochs": config['train_epochs'],
+        "train_batch_size": config['train_batch_size'],
+        "unet_n_depth": config['unet_n_depth'],
+        "n2s_alpha": config['n2s_alpha'],
+        "n2s_monitor": config['n2s_monitor']
     }
 
-    return temp_conf
+    return exp_conf
 
-def start_score_evaluation_on_validation_experiment(temp_conf, exp_path, data_path):
+
+def start_n2s_experiment(exp_conf, exp_path, data_path):
     os.makedirs(exp_path, exist_ok=True)
 
-    copytree(join(gitrepo_path, 'noise2seg'), join(exp_path, 'noise2seg'))
-    cp(join(gitrepo_path, 'validation_evaluation.py'), exp_path)
+    copytree(join(gitrepo_path, 'denoiseg'), join(exp_path, 'denoiseg'))
+    cp(join(gitrepo_path, 'denoiseg.py'), exp_path)
 
-    with open(join(exp_path, 'temp.json'), 'w') as f:
-        json.dump(temp_conf, f)
+    with open(join(exp_path, 'experiment.json'), 'w') as f:
+        json.dump(exp_conf, f)
 
     slurm_script = create_slurm_script(exp_path, data_path)
     with open(join(exp_path, 'slurm.job'), 'w') as f:
@@ -112,7 +171,6 @@ def start_score_evaluation_on_validation_experiment(temp_conf, exp_path, data_pa
     os.system('chmod -R 775 ' + exp_path)
 
     os.system('sbatch {}'.format(join(exp_path, "slurm.job")))
-
 
 def create_slurm_script(exp_path, data_path):
     script = [
@@ -125,12 +183,12 @@ def create_slurm_script(exp_path, data_path):
         "#SBATCH -c 1\n",
         "#SBATCH --partition=gpu\n",
         "#SBATCH --gres=gpu:1\n",
-        "#SBATCH --exclude=r02n01,r01n01,r01n02,r01n03,r01n04,r02n22\n",
+        "#SBATCH --exclude=r02n01,r01n01,r01n02,r01n03,r02n08\n",
         "#SBATCH --mem=32000\n",
         "#SBATCH --export=ALL\n",
         "\n",
         "cd {}\n".format(singularity_path),
-        "srun -J N2S -o {}/validation_evaluation.log singularity exec --nv -B user/:/run/user -B {}:/notebooks -B {}:/data {} python3 /notebooks/validation_evaluation.py --temp_conf /notebooks/temp.json\n".format(exp_path, exp_path, data_path, singularity_path+"noise2seg.simg")
+        "srun -J N2S -o {}/denoiseg.log singularity exec --nv -B user/:/run/user -B {}:/notebooks -B {}:/data {} python3 /notebooks/denoiseg.py --exp_conf /notebooks/experiment.json\n".format(exp_path, exp_path, data_path, singularity_path+"denoiseg.simg")
     ]
 
     return script

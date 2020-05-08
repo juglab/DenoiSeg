@@ -7,10 +7,10 @@ from six import string_types
 
 
 # This class is a adapted version of csbdeep.models.config.py.
-class Noise2SegConfig(argparse.Namespace):
+class DenoiSegConfig(argparse.Namespace):
     """
-    Default configuration for a trainable segmentation (Noise2Seg) model.
-    This class is meant to be used with :class:`Noise2Seg`.
+    Default configuration for a trainable segmentation (DenoiSeg) model.
+    This class is meant to be used with :class:`DenoiSeg`.
 
     Parameters
     ----------
@@ -21,7 +21,7 @@ class Noise2SegConfig(argparse.Namespace):
 
     Example
     -------
-    >>> n2s_config = Noise2SegConfig(X, unet_n_depth=3)
+    >>> denoiseg_config = DenoiSegConfig(X, unet_n_depth=3)
 
     Attributes
     ----------
@@ -52,7 +52,7 @@ class Noise2SegConfig(argparse.Namespace):
     train_reduce_lr : dict
         Parameter :class:`dict` of ReduceLROnPlateau_ callback; set to ``None`` to disable. Default: ``{'monitor': 'val_seg_loss', 'factor': 0.5, 'patience': 10}``
     train_loss : str
-        Switch between seg- or noise2seg-loss; Default: ``noise2seg``
+        Switch between seg- or denoiseg-loss; Default: ``denoiseg``
     n2v_perc_pix : float
         Percentage of pixel to manipulate per patch. Default: ``1.5``
     n2v_patch_shape : tuple
@@ -61,7 +61,7 @@ class Noise2SegConfig(argparse.Namespace):
         Noise2Void pixel value manipulator. Default: ``uniform_withCP``
     n2v_neighborhood_radius : int
         Neighborhood radius for n2v_old manipulator. Default: ``5``
-    n2s_alpha : float
+    denoiseg_alpha : float
         Factor modulating the contribution of denoising and segmentation. alpha * denoising + (1-alpha) * segmentation: Default: ``0.5``
 
         .. _ReduceLROnPlateau: https://keras.io/callbacks/#reducelronplateau
@@ -117,7 +117,7 @@ class Noise2SegConfig(argparse.Namespace):
             # fixed parameters
             self.n_channel_in = 1
             self.n_channel_out = 4
-            self.train_loss = 'noise2seg'
+            self.train_loss = 'denoiseg'
 
             # default config (can be overwritten by kwargs below)
 
@@ -141,13 +141,13 @@ class Noise2SegConfig(argparse.Namespace):
             self.train_checkpoint = 'weights_best.h5'
             self.train_checkpoint_last  = 'weights_last.h5'
             self.train_checkpoint_epoch = 'weights_now.h5'
-            self.train_reduce_lr = {'monitor': 'val_seg_loss', 'factor': 0.5, 'patience': 10}
+            self.train_reduce_lr = {'monitor': 'val_loss', 'factor': 0.5, 'patience': 10}
             self.batch_norm = True
             self.n2v_perc_pix = 1.5
             self.n2v_patch_shape = (64, 64) if self.n_dim == 2 else (64, 64, 64)
             self.n2v_manipulator = 'uniform_withCP'
             self.n2v_neighborhood_radius = 5
-            self.n2s_alpha = 0.5
+            self.denoiseg_alpha = 0.5
 
         # disallow setting 'probabilistic' manually
         try:
@@ -189,7 +189,7 @@ class Noise2SegConfig(argparse.Namespace):
         ok['n_channel_in'] = _is_int(self.n_channel_in, 1)
         ok['n_channel_out'] = _is_int(self.n_channel_out, 4)
         ok['train_loss'] = (
-            (self.train_loss in ('seg', 'noise2seg'))
+            (self.train_loss in ('seg', 'denoiseg'))
         )
         ok['unet_n_depth'] = _is_int(self.unet_n_depth, 1)
         ok['relative_weights'] = isinstance(self.relative_weights, list) and len(self.relative_weights) == 3 and all(
@@ -223,7 +223,7 @@ class Noise2SegConfig(argparse.Namespace):
         ok['n2v_manipulator'] = self.n2v_manipulator in ['normal_withoutCP', 'uniform_withCP', 'normal_additive',
                                                          'normal_fitted', 'identity']
         ok['n2v_neighborhood_radius'] = _is_int(self.n2v_neighborhood_radius, 0)
-        ok['n2s_alpha'] = isinstance(self.n2s_alpha, float) and self.n2s_alpha >= 0.0
+        ok['denoiseg_alpha'] = isinstance(self.denoiseg_alpha, float) and self.denoiseg_alpha >= 0.0 and self.denoiseg_alpha <= 1.0
 
         if return_invalid:
             return all(ok.values()), tuple(k for (k, v) in ok.items() if not v)

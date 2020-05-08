@@ -1,4 +1,4 @@
-from noise2seg.models import Noise2Seg, Noise2SegConfig
+from denoiseg.models import DenoiSeg, DenoiSegConfig
 from skimage import io
 import csv
 import numpy as np
@@ -6,9 +6,9 @@ import pickle
 import os
 from os.path import join, exists
 from os import makedirs as mkdir
-from noise2seg.utils.misc_utils import shuffle_train_data, augment_data
-from noise2seg.utils.seg_utils import *
-from noise2seg.utils.compute_precision_threshold import measure_precision, measure_seg
+from denoiseg.utils.misc_utils import shuffle_train_data, augment_data
+from denoiseg.utils.seg_utils import *
+from denoiseg.utils.compute_precision_threshold import measure_precision, measure_seg
 import argparse
 import json
 
@@ -61,21 +61,21 @@ def main():
     # create model
     train_steps_per_epoch = max(100, min(int(X.shape[0]/conf['train_batch_size']), 400))
     print("train_steps_per_epoch =", train_steps_per_epoch)
-    n2s_conf = Noise2SegConfig(X, unet_kern_size=3, n_channel_out=4, relative_weights = [1.0,1.0,5.0],
-                               train_steps_per_epoch=train_steps_per_epoch, train_epochs=conf['train_epochs'], train_loss='noise2seg', batch_norm=True,
-                               train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'],
-                               n2s_alpha=conf['n2s_alpha'],
-                               train_tensorboard=False,
-                               train_reduce_lr={"monitor" : conf['n2s_monitor'],
+    n2s_conf = DenoiSegConfig(X, unet_kern_size=3, n_channel_out=4, relative_weights = [1.0, 1.0, 5.0],
+                              train_steps_per_epoch=train_steps_per_epoch, train_epochs=conf['train_epochs'], train_loss='denoiseg', batch_norm=True,
+                              train_batch_size=conf['train_batch_size'], unet_n_first = 32, unet_n_depth=conf['unet_n_depth'],
+                              n2s_alpha=conf['n2s_alpha'],
+                              train_tensorboard=False,
+                              train_reduce_lr={"monitor" : conf['n2s_monitor'],
                                                 "patience" : 10,
                                                 "min_delta" : 0.00001,
                                                 "factor" : 0.75,
                                                 "min_lr" : 0.0000125
                                                   }
-                               )
+                              )
 
     vars(n2s_conf)
-    n2s_model = Noise2Seg(n2s_conf, conf['model_name'], conf['basedir'])
+    n2s_model = DenoiSeg(n2s_conf, conf['model_name'], conf['basedir'])
 
     # train
     history = n2s_model.train(X, Y, (X_val, Y_val))
@@ -83,7 +83,7 @@ def main():
         pickle.dump(history, p)
 
     # load model
-    n2s_model = Noise2Seg(None, conf['model_name'], conf['basedir'])
+    n2s_model = DenoiSeg(None, conf['model_name'], conf['basedir'])
 
     # compute AP results
     ap_threshold, validation_ap_score = n2s_model.optimize_thresholds(val_images, Y_val_masks, measure=measure_precision())
