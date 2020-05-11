@@ -1,0 +1,36 @@
+__pycache__/
+*.py[cod]
+.idea
+
+.DS_Store
+.ipynb_checkpoints
+.pytest_cache
+*.egg-info/
+build/
+dist/
+docs/build/
+examples/**/models/
+
+*.png
+*.npz
+*.npy
+*.tif*
+*.hdf5
+*.h5
+*.zip
+*.tfevents.*
+config.json
+
+/.project
+__MACOSX
+
+# Singularity image files
+*.simg
+singularity/user/*
+
+# Dolphin dir-stuff
+/.directory
+
+# Stuff
+*.csv
+*.hist
