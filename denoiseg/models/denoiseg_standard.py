@@ -175,6 +175,7 @@ class DenoiSeg(CARE):
 
         X = self.__normalize__(X, means, stds)
         validation_X = self.__normalize__(validation_data[0], means, stds)
+        validation_X += np.random.normal(0,0.2, validation_X.shape)
 
         # Here we prepare the Noise2Void data. Our input is the noisy data X and as target we take X concatenated with
         # a masking channel. The N2V_DataWrapper will take care of the pixel masking and manipulating.
@@ -452,7 +453,8 @@ class DenoiSeg(CARE):
         else:
             normalized = self.__normalize__(img[..., np.newaxis], means, stds)
             normalized = normalized[..., 0]
-
+        
+        normalized += np.random.normal(0, 0.2, normalized.shape)
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
 
         pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)

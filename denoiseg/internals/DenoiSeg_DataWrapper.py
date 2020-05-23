@@ -74,6 +74,8 @@ class DenoiSeg_DataWrapper(Sequence):
             y_start = np.random.randint(0, range[0] + 1)
             x_start = np.random.randint(0, range[1] + 1)
             X_Batches[j] = np.copy(X[j, y_start:y_start + shape[0], x_start:x_start + shape[1]])
+            # Gaussian Noise Augmentation
+            X_Batches[j] += np.random.normal(0,0.2,X_Batches[j].shape)
             Y_segBatches[j] = np.copy(Y_seg[j, y_start:y_start + shape[0], x_start:x_start + shape[1]])
 
     @staticmethod
