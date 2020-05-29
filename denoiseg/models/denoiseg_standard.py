@@ -371,21 +371,21 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_label_masks(self, X, Y, threshold, measure):
+    def predict_label_masks(self, X, Y, threshold, measure, noise_augmentation=True):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
             if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes='YX')
+                prediction = self.predict(X[i].astype(np.float32), axes='YX', noise_augmentation=noise_augmentation)
                 labels = compute_labels(prediction, threshold)
                 tmp_score = measure(Y[i], labels)
                 predicted_images.append(labels)
                 precision_result.append(tmp_score)
         return predicted_images, np.mean(precision_result)
 
-    def optimize_thresholds(self, X_val, Y_val, measure):
+    def optimize_thresholds(self, X_val, Y_val, measure, noise_augmentation=True):
         """
          Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
 
@@ -413,7 +413,7 @@ class DenoiSeg(CARE):
         else:
             progress_bar = tqdm
         for ts in progress_bar(np.linspace(0.1, 1, 19)):
-            _, score = self.predict_label_masks(X_val, Y_val, ts, measure)
+            _, score = self.predict_label_masks(X_val, Y_val, ts, measure, noise_augmentation=noise_augmentation)
             precision_scores.append((ts, score))
             print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
@@ -422,7 +422,7 @@ class DenoiSeg(CARE):
         best_score = sorted_score[1]
         return computed_threshold, best_score
 
-    def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
+    def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None, noise_augmentation=True):
         """
         Apply the network to so far unseen data. 
         Parameters
@@ -454,7 +454,9 @@ class DenoiSeg(CARE):
             normalized = self.__normalize__(img[..., np.newaxis], means, stds)
             normalized = normalized[..., 0]
         
-        normalized += np.random.normal(0, 0.2, normalized.shape)
+        if noise_augmentation:
+            normalized += np.random.normal(0, 0.2, normalized.shape)
+            
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
 
         pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
