@@ -661,7 +661,7 @@ class DenoiSeg(CARE):
             'language': 'python',
             'framework': 'tensorflow',
             'format_version': '0.2.0-csbdeep',
-            'source': 'DenoiSeg',
+            'source': 'denoiseg',
             'test_input': 'testinput.tif',
             'test_output': 'testoutput.tif',
             'inputs': [{
