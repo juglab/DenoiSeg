@@ -48,7 +48,7 @@ setup(name='denoiseg',
           "tqdm",
           "pathlib2;python_version<'3'",
           "backports.tempfile;python_version<'3.4'",
-          "csbdeep>=0.4.0,<0.5.0",
+          "csbdeep>=0.4.0,<0.6.0",
           "numba",
           "scikit-learn",
           "scikit-image"
