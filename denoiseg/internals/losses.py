@@ -29,31 +29,13 @@ def loss_seg(relative_weights):
     return seg_crossentropy
 
 
-def loss_denoiseg(alpha=0.5, relative_weights=[1.0, 1.0, 5.0]):
-    """
-    Calculate DenoiSeg loss which is a weighted sum of segmentation- and
-    noise2void-loss
-
-    :param lambda_: relative weighting, 0 means denoising, 1 means segmentation; (Default: 0.5)
-    :param relative_weights: Segmentation class weights (background, foreground, border); (Default: [1.0, 1.0, 5.0])
-    :return: DenoiSeg loss
-    """
-    denoise_loss = denoiseg_denoise_loss(weight=alpha)
-    seg_loss = denoiseg_seg_loss(weight=(1 - alpha), relative_weights=relative_weights)
-
-    def denoiseg(y_true, y_pred):
-        return seg_loss(y_true, y_pred) + denoise_loss(y_true, y_pred)
-
-    return denoiseg
-
-
-def denoiseg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
+def denoiseg_seg_loss(relative_weights=[1.0, 1.0, 5.0]):
     class_weights = tf.constant([relative_weights])
 
     def seg_loss(y_true, y_pred):
         channel_axis = len(y_true.shape) - 1
-        target, mask, bg, fg, b = tf.split(y_true, 5, axis=channel_axis)
-        denoised, pred_bg, pred_fg, pred_b = tf.split(y_pred, 4, axis=len(y_pred.shape) - 1)
+        bg, fg, b = tf.split(y_true, 3, axis=channel_axis)
+        pred_bg, pred_fg, pred_b = tf.split(y_pred, 3, axis=len(y_pred.shape) - 1)
 
         onehot_gt = tf.reshape(tf.stack([bg, fg, b], axis=3), [-1, 3])
         weighted_gt = tf.reduce_sum(class_weights * onehot_gt, axis=1)
@@ -64,19 +46,17 @@ def denoiseg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
             tf.reduce_sum(onehot_gt, axis=-1) * (cross_entropy(logits=onehot_pred, labels=onehot_gt) * weighted_gt)
         )
 
-        return weight * segmentation_loss
+        return segmentation_loss
 
     return seg_loss
 
 
-def denoiseg_denoise_loss(weight=0.5):
+def denoiseg_denoise_loss():
     n2v_mse_loss = n2v_loss()
 
     def denoise_loss(y_true, y_pred):
         channel_axis = len(y_true.shape) - 1
-        target, mask, bg, fg, b = tf.split(y_true, 5, axis=channel_axis)
-        denoised, pred_bg, pred_fg, pred_b = tf.split(y_pred, 4, axis=len(y_pred.shape) - 1)
-
-        return weight * n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), denoised)
+        target, mask = tf.split(y_true, 2, axis=channel_axis)
+        return n2v_mse_loss(tf.concat([target, mask], axis=channel_axis), y_pred)
 
     return denoise_loss

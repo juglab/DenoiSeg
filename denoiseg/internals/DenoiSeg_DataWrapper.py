@@ -66,7 +66,7 @@ class DenoiSeg_DataWrapper(Sequence):
                 self.Y_n2vBatches[indexing_mask] = 1
                 self.X_Batches[indexing] = x_val
 
-        return self.X_Batches[idx], np.concatenate((self.Y_n2vBatches[idx], self.Y_segBatches[idx]), axis=-1)
+        return self.X_Batches[idx], {'out_denoise': self.Y_n2vBatches[idx], 'out_segment': self.Y_segBatches[idx]}
 
     @staticmethod
     def __subpatch_sampling2D__(X, X_Batches, Y_seg, Y_segBatches, indices, range, shape):

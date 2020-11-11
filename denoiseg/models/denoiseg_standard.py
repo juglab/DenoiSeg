@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from csbdeep.data import PadAndCropResizer
 from csbdeep.internals import nets, predict
+from csbdeep.internals.predict import Progress, to_tensor, from_tensor, tile_iterator_1d
 from csbdeep.models import CARE
 from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json, load_json
 from csbdeep.utils.six import Path
@@ -27,9 +28,11 @@ from tifffile import imsave
 from denoiseg.models import DenoiSegConfig
 from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
-from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss
+from denoiseg.internals.losses import denoiseg_denoise_loss, denoiseg_seg_loss
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
+
+from ..nets.denoiseg_net import denoiseg_model
 
 
 class DenoiSeg(CARE):
@@ -139,9 +142,9 @@ class DenoiSeg(CARE):
            """
 
         def _build_this(input_shape):
-            return nets.custom_unet(input_shape, last_activation, n_depth, n_first, (kern_size,) * n_dim,
+            return denoiseg_model(input_shape, last_activation, n_depth, n_first, (kern_size,) * n_dim,
                                     pool_size=(2,) * n_dim, n_channel_out=n_channel_out, residual=residual,
-                                    prob_out=False, batch_norm=batch_norm)
+                                    batch_norm=batch_norm)
 
         return _build_this
 
@@ -205,9 +208,13 @@ class DenoiSeg(CARE):
                                       shape=val_patch_shape,
                                       value_manipulation=manipulator)
 
-        validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
+        # validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
-        history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
+        history = self.keras_model.fit_generator(generator=training_data,
+                                                 validation_data=(validation_X,
+                                                                  {'out_denoise': validation_Y,
+                                                                   'out_segment': validation_data[1]}
+                                                                  ),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
                                                  callbacks=self.callbacks, verbose=1)
 
@@ -314,16 +321,13 @@ class DenoiSeg(CARE):
                             # target
                             output_layer = self.gt_outputs[i][tuple(sl)]
                             layer_name = _name('net_target', self.model.outputs[i], i, n_outputs)
-                            tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
+                            tf_sums.append(tf.summary.image(layer_name, output_layer, max_outputs=self.n_images))
                             # prediction
-                            denoised_layer = self.model.outputs[i][..., :1][tuple(sl)]
-                            foreground_layer = self.model.outputs[i][..., 2:3][tuple(sl)]
-                            foreground_layer = K.cast(K.greater(foreground_layer, 0.5), tf.float32)
-
-                            denoised_name = _name('net_output_denoised', self.model.outputs[i], i, n_outputs)
-                            foreground_name = _name('net_output_foreground_threshold.5', self.model.outputs[i], i, n_outputs)
-                            tf_sums.append(tf.compat.v1.summary.image(denoised_name, denoised_layer, max_outputs=self.n_images))
-                            tf_sums.append(tf.compat.v1.summary.image(foreground_name, foreground_layer, max_outputs=self.n_images))
+                            sep = 1
+                            output_layer = self.model.outputs[i][..., :sep][tuple(sl)]
+                            layer_name = _name('net_output', self.model.outputs[i], i, n_outputs)
+                            tf_sums.append(
+                                tf.summary.image(layer_name, output_layer, max_outputs=self.n_images))
 
                         with tf.name_scope('merged'):
                             self.merged = tf.compat.v1.summary.merge(tf_sums)
@@ -349,7 +353,8 @@ class DenoiSeg(CARE):
                                     val_data += self.validation_data[-1:]
                                 else:
                                     val_data = list(v[:self.n_images] for v in self.validation_data)
-                                val_data[1] = val_data[1][..., 3:4]
+                                val_data[1] = val_data[1][..., :1]
+                                val_data[2] = val_data[2][..., :1]
                                 feed_dict = dict(zip(tensors, val_data))
                                 result = self.sess.run([self.merged], feed_dict=feed_dict)
                                 summary_str = result[0]
@@ -387,8 +392,8 @@ class DenoiSeg(CARE):
             if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes='YX')
-                labels = compute_labels(prediction, threshold)
+                denoised, segmentation = self.predict(X[i].astype(np.float32), axes='YX')
+                labels = compute_labels(segmentation, threshold)
                 tmp_score = measure(Y[i], labels)
                 predicted_images.append(labels)
                 precision_result.append(tmp_score)
@@ -463,16 +468,213 @@ class DenoiSeg(CARE):
             normalized = self.__normalize__(img[..., np.newaxis], means, stds)
             normalized = normalized[..., 0]
 
-        pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
+        pred_denoised, pred_segment = self.predict_mean_and_scale(normalized, axes=new_axes, resizer=resizer, n_tiles=n_tiles)
 
-        pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
-        
-        pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
+        pred_denoised = self.__denormalize__(pred_denoised, means, stds)
         
         if 'C' in axes:
-            pred = np.moveaxis(pred, -1, axes.index('C'))
+            pred_denoised = np.moveaxis(pred_denoised, -1, axes.index('C'))
+            pred_segment = np.moveaxis(pred_segment, -1, axes.index('C'))
 
-        return pred
+        return pred_denoised, pred_segment
+
+    def predict_mean_and_scale(self, img, axes, resizer, n_tiles=None):
+        """Apply neural network to raw image to predict restored image.
+
+        See :func:`predict` for parameter explanations.
+
+        Returns
+        -------
+        tuple(:class:`numpy.ndarray`, :class:`numpy.ndarray` or None)
+            If model is probabilistic, returns a tuple `(mean, scale)` that defines the parameters
+            of per-pixel Laplace distributions. Otherwise, returns the restored image via a tuple `(restored,None)`
+
+        """
+        _, resizer = self._check_normalizer_resizer(None, resizer)
+        # axes = axes_check_and_normalize(axes,img.ndim)
+
+        # different kinds of axes
+        # -> typical case: net_axes_in = net_axes_out, img_axes_in = img_axes_out
+        img_axes_in = axes_check_and_normalize(axes,img.ndim)
+        net_axes_in = self.config.axes
+        net_axes_out = axes_check_and_normalize(self._axes_out)
+        set(net_axes_out).issubset(set(net_axes_in)) or _raise(ValueError("different kinds of output than input axes"))
+        net_axes_lost = set(net_axes_in).difference(set(net_axes_out))
+        img_axes_out = ''.join(a for a in img_axes_in if a not in net_axes_lost)
+        # print(' -> '.join((img_axes_in, net_axes_in, net_axes_out, img_axes_out)))
+        tiling_axes = net_axes_out.replace('C','') # axes eligible for tiling
+
+        _permute_axes = self._make_permute_axes(img_axes_in, net_axes_in, net_axes_out, img_axes_out)
+        # _permute_axes: (img_axes_in -> net_axes_in), undo: (net_axes_out -> img_axes_out)
+        x = _permute_axes(img)
+        # x has net_axes_in semantics
+        x_tiling_axis = tuple(axes_dict(net_axes_in)[a] for a in tiling_axes) # numerical axis ids for x
+
+        channel_in = axes_dict(net_axes_in)['C']
+        channel_out = axes_dict(net_axes_out)['C']
+        net_axes_in_div_by = self._axes_div_by(net_axes_in)
+        net_axes_in_overlaps = self._axes_tile_overlap(net_axes_in)
+        self.config.n_channel_in == x.shape[channel_in] or _raise(ValueError())
+
+        # TODO: refactor tiling stuff to make code more readable
+
+        _permute_axes_n_tiles = self._make_permute_axes(img_axes_in, net_axes_in)
+        # _permute_axes_n_tiles: (img_axes_in <-> net_axes_in) to convert n_tiles between img and net axes
+        def _permute_n_tiles(n,undo=False):
+            # hack: move tiling axis around in the same way as the image was permuted by creating an array
+            return _permute_axes_n_tiles(np.empty(n,np.bool),undo=undo).shape
+
+        # to support old api: set scalar n_tiles value for the largest tiling axis
+        if np.isscalar(n_tiles) and int(n_tiles)==n_tiles and 1<=n_tiles:
+            largest_tiling_axis = [i for i in np.argsort(x.shape) if i in x_tiling_axis][-1]
+            _n_tiles = [n_tiles if i==largest_tiling_axis else 1 for i in range(x.ndim)]
+            n_tiles = _permute_n_tiles(_n_tiles,undo=True)
+            warnings.warn("n_tiles should be a tuple with an entry for each image axis")
+            print("Changing n_tiles to %s" % str(n_tiles))
+
+        if n_tiles is None:
+            n_tiles = [1]*img.ndim
+        try:
+            n_tiles = tuple(n_tiles)
+            img.ndim == len(n_tiles) or _raise(TypeError())
+        except TypeError:
+            raise ValueError("n_tiles must be an iterable of length %d" % img.ndim)
+
+        all(np.isscalar(t) and 1<=t and int(t)==t for t in n_tiles) or _raise(
+            ValueError("all values of n_tiles must be integer values >= 1"))
+        n_tiles = tuple(map(int,n_tiles))
+        n_tiles = _permute_n_tiles(n_tiles)
+        (all(n_tiles[i] == 1 for i in range(x.ndim) if i not in x_tiling_axis) or
+            _raise(ValueError("entry of n_tiles > 1 only allowed for axes '%s'" % tiling_axes)))
+        n_tiles_limited = self._limit_tiling(x.shape,n_tiles,net_axes_in_div_by)
+        if any(np.array(n_tiles) != np.array(n_tiles_limited)):
+            print("Limiting n_tiles to %s" % str(_permute_n_tiles(n_tiles_limited,undo=True)))
+        n_tiles = n_tiles_limited
+
+
+        # normalize & resize
+        x = resizer.before(x, net_axes_in, net_axes_in_div_by)
+
+        done = False
+        progress = Progress(np.prod(n_tiles),1)
+        while not done:
+            try:
+                # raise tf.errors.ResourceExhaustedError(None,None,None) # tmp
+                denoised, segmentation = self.predict_tiled(self.keras_model,x,axes_in=net_axes_in,axes_out=net_axes_out,
+                                  n_tiles=n_tiles,block_sizes=net_axes_in_div_by,tile_overlaps=net_axes_in_overlaps,pbar=progress)
+                # x has net_axes_out semantics
+                done = True
+                progress.close()
+            except tf.errors.ResourceExhaustedError:
+                # TODO: how to test this code?
+                n_tiles_prev = list(n_tiles) # make a copy
+                tile_sizes_approx = np.array(x.shape) / np.array(n_tiles)
+                t = [i for i in np.argsort(tile_sizes_approx) if i in x_tiling_axis][-1]
+                n_tiles[t] *= 2
+                n_tiles = self._limit_tiling(x.shape,n_tiles,net_axes_in_div_by)
+                if all(np.array(n_tiles) == np.array(n_tiles_prev)):
+                    raise MemoryError("Tile limit exceeded. Memory occupied by another process (notebook)?")
+                print('Out of memory, retrying with n_tiles = %s' % str(_permute_n_tiles(n_tiles,undo=True)))
+                progress.total = np.prod(n_tiles)
+
+        denoised = resizer.after(denoised, net_axes_out)
+        segmentation = resizer.after(segmentation, net_axes_out)
+
+        return denoised, segmentation
+
+    def _limit_tiling(self,img_shape,n_tiles,block_sizes):
+        img_shape, n_tiles, block_sizes = np.array(img_shape), np.array(n_tiles), np.array(block_sizes)
+        n_tiles_limit = np.ceil(img_shape / block_sizes) # each tile must be at least one block in size
+        return [int(t) for t in np.minimum(n_tiles,n_tiles_limit)]
+
+    def predict_tiled(self, keras_model, x, n_tiles, block_sizes, tile_overlaps, axes_in, axes_out=None, pbar=None, **kwargs):
+        """TODO."""
+
+        if all(t == 1 for t in n_tiles):
+            denoised, segmentation = self.predict_direct(keras_model, x, axes_in, axes_out, **kwargs)
+            if pbar is not None:
+                pbar.update()
+            return denoised, segmentation
+
+        ###
+
+        if axes_out is None:
+            axes_out = axes_in
+        axes_in, axes_out = axes_check_and_normalize(axes_in, x.ndim), axes_check_and_normalize(axes_out)
+        assert 'S' not in axes_in
+        assert 'C' in axes_in and 'C' in axes_out
+        ax_in, ax_out = axes_dict(axes_in), axes_dict(axes_out)
+        channel_in, channel_out = ax_in['C'], ax_out['C']
+
+        assert set(axes_out).issubset(set(axes_in))
+        axes_lost = set(axes_in).difference(set(axes_out))
+
+        def _to_axes_out(seq, elem):
+            # assumption: prediction size is same as input size along all axes, except for channel (and lost axes)
+            assert len(seq) == len(axes_in)
+            # 1. re-order 'seq' from axes_in to axes_out semantics
+            seq = [seq[ax_in[a]] for a in axes_out]
+            # 2. replace value at channel position with 'elem'
+            seq[ax_out['C']] = elem
+            return tuple(seq)
+
+        ###
+
+        assert x.ndim == len(n_tiles) == len(block_sizes)
+        assert n_tiles[channel_in] == 1
+        assert all(n_tiles[ax_in[a]] == 1 for a in axes_lost)
+        assert all(np.isscalar(t) and 1 <= t and int(t) == t for t in n_tiles)
+
+        # first axis > 1
+        axis = next(i for i, t in enumerate(n_tiles) if t > 1)
+
+        block_size = block_sizes[axis]
+        tile_overlap = tile_overlaps[axis]
+        n_block_overlap = int(np.ceil(1. * tile_overlap / block_size))
+
+        # print(f"axis={axis},n_tiles={n_tiles[axis]},block_size={block_size},tile_overlap={tile_overlap},n_block_overlap={n_block_overlap}")
+
+        n_tiles_remaining = list(n_tiles)
+        n_tiles_remaining[axis] = 1
+
+        def channel_axis_shuffle(_to_axes_out, channel_out, denoised, dst, s_dst, s_src, x):
+            if dst is None:
+                dst_shape = _to_axes_out(x.shape, denoised.shape[channel_out])
+                dst = np.empty(dst_shape, dtype=x.dtype)
+            s_src = _to_axes_out(s_src, slice(None))
+            s_dst = _to_axes_out(s_dst, slice(None))
+            dst[s_dst] = denoised[s_src]
+            return dst
+
+        dst_denoised = None
+        dst_segmentation = None
+        for tile, s_src, s_dst in tile_iterator_1d(x, axis=axis, n_tiles=n_tiles[axis], block_size=block_size,
+                                                   n_block_overlap=n_block_overlap):
+
+            denoised, segmentation = self.predict_tiled(keras_model, tile, n_tiles_remaining, block_sizes, tile_overlaps, axes_in, axes_out,
+                                 pbar=pbar, **kwargs)
+
+            denoised = channel_axis_shuffle(_to_axes_out, channel_out, denoised, dst_denoised, s_dst, s_src, x)
+            segmentation = channel_axis_shuffle(_to_axes_out, channel_out, segmentation, dst_segmentation, s_dst, s_src, x)
+
+        return denoised, segmentation
+
+
+
+    def predict_direct(self, keras_model, x, axes_in, axes_out=None, **kwargs):
+        """TODO."""
+        if axes_out is None:
+            axes_out = axes_in
+        ax_in, ax_out = axes_dict(axes_in), axes_dict(axes_out)
+        channel_in, channel_out = ax_in['C'], ax_out['C']
+        single_sample = ax_in['S'] is None
+        len(axes_in) == x.ndim or _raise(ValueError())
+        x = to_tensor(x, channel=channel_in, single_sample=single_sample)
+        denoised_tensor, segmentation_tensor = keras_model.predict(x, **kwargs)
+        denoised = from_tensor(denoised_tensor, channel=channel_out, single_sample=single_sample)
+        segmentation = from_tensor(segmentation_tensor, channel=channel_out, single_sample=single_sample)
+        len(axes_out) == denoised.ndim or _raise(ValueError())
+        return denoised, segmentation
 
     def prepare_model(self, model, optimizer, loss):
         """
@@ -496,24 +698,17 @@ class DenoiSeg(CARE):
         from keras.optimizers import Optimizer
         isinstance(optimizer, Optimizer) or _raise(ValueError())
 
-        if self.config.train_loss == 'seg':
-            loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
-            _metrics = [loss_standard]
-        elif self.config.train_loss == 'denoiseg':
-            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={})'.format(
-                self.config.denoiseg_alpha,
-                self.config.relative_weights))
-            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.denoiseg_alpha,
-                                                                                          self.config.relative_weights))
-            denoise_metric = eval('denoiseg_denoise_loss(weight={})'.format(self.config.denoiseg_alpha))
-            _metrics = [loss_standard, seg_metric, denoise_metric]
+        if self.config.train_loss == 'denoiseg':
+            loss_n2v = denoiseg_denoise_loss()
+            loss_seg = denoiseg_seg_loss(self.config.relative_weights)
         else:
             _raise('Unknown Loss!')
 
         callbacks = [TerminateOnNaN()]
 
         # compile model
-        model.compile(optimizer=optimizer, loss=loss_standard, metrics=_metrics)
+        model.compile(optimizer=optimizer, loss={'out_denoise': loss_n2v, 'out_segment': loss_seg},
+                      loss_weights={'out_denoise': self.config.denoiseg_alpha, 'out_segment': 1-self.config.denoiseg_alpha})
 
         return callbacks
 
