@@ -1,37 +1,33 @@
 import datetime
+import os
+import shutil
 import warnings
+from zipfile import ZipFile
 
+import keras
 import numpy as np
 import tensorflow as tf
 from csbdeep.data import PadAndCropResizer
-from csbdeep.internals import nets, predict
+from csbdeep.internals import predict
 from csbdeep.internals.predict import Progress, to_tensor, from_tensor, tile_iterator_1d
 from csbdeep.models import CARE
+from csbdeep.models.base_model import suppress_without_basedir
 from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json, load_json
 from csbdeep.utils.six import Path
-from csbdeep.models.base_model import suppress_without_basedir
+from csbdeep.utils.six import tempfile
 from csbdeep.version import __version__ as package_version
-import keras
 from keras import backend as K
 from keras.callbacks import TerminateOnNaN
 from n2v.utils import n2v_utils
-from scipy import ndimage
-from six import string_types
-
-import os
 from ruamel.yaml import YAML
-from zipfile import ZipFile
-from csbdeep.utils.six import tempfile
-import shutil
+from six import string_types
 from tifffile import imsave
+from tqdm import tqdm, tqdm_notebook
 
+from denoiseg.internals.losses import denoiseg_denoise_loss, denoiseg_seg_loss
 from denoiseg.models import DenoiSegConfig
 from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
 from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
-from denoiseg.internals.losses import denoiseg_denoise_loss, denoiseg_seg_loss
-from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
-from tqdm import tqdm, tqdm_notebook
-
 from ..nets.denoiseg_net import denoiseg_model
 
 
@@ -793,14 +789,17 @@ class DenoiSeg(CARE):
             yaml.dump(yml_dict, outfile)
             
         input_file = self.logdir / 'testinput.tif'
-        output_file = self.logdir / 'testoutput.tif'
+        output_denoised_file = self.logdir / 'testoutput_denoise.tif'
+        output_segmented_file = self.logdir / 'testoutput_segment.tif'
         imsave(input_file, test_img)
-        imsave(output_file, test_output)
+        imsave(output_denoised_file, test_output[0])
+        imsave(output_segmented_file, test_output[1])
             
         with ZipFile(fname, 'a') as myzip:
             myzip.write(yml_file, arcname=os.path.basename(yml_file))
             myzip.write(input_file, arcname=os.path.basename(input_file))
-            myzip.write(output_file, arcname=os.path.basename(output_file))
+            myzip.write(output_denoised_file, arcname=os.path.basename(output_denoised_file))
+            myzip.write(output_segmented_file, arcname=os.path.basename(output_segmented_file))
             
         print("\nModel exported in BioImage ModelZoo format:\n%s" % str(fname.resolve()))
             
@@ -870,17 +869,30 @@ class DenoiSeg(CARE):
                     'step': step_val
                 }
             }],
-            'outputs': [{ 
-                'name': self.keras_model.layers[-1].output.name , 
-                'axes': axes_val,
-                'data_type': 'float32',
-                'data_range': out_data_range_val,
-                'shape': {
-                    'reference_input': 'input',
-                    'scale': scale_val,
-                    'offset': offset_val
+            'outputs': [
+                {
+                    'name': self.keras_model.layers[-2].output.name,
+                    'axes': axes_val,
+                    'data_type': 'float32',
+                    'data_range': out_data_range_val,
+                    'shape': {
+                        'reference_input': 'input',
+                        'scale': scale_val,
+                        'offset': offset_val
+                    }
+                },
+                {
+                    'name': self.keras_model.layers[-1].output.name,
+                    'axes': axes_val,
+                    'data_type': 'float32',
+                    'data_range': out_data_range_val,
+                    'shape': {
+                        'reference_input': 'input',
+                        'scale': scale_val,
+                        'offset': offset_val
+                    }
                 }
-            }],
+            ],
             'training': {
                 'source': 'n2v.train()',
                 'kwargs': tr_kwargs_val
