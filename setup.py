@@ -38,7 +38,7 @@ setup(name='denoiseg',
       ],
 
       install_requires=[
-	      "n2v",
+	      "n2v==0.2.1",
 	      "numpy",
           "scipy",
           "matplotlib",
