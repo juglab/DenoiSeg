@@ -43,7 +43,7 @@ After installing Miniconda, the following lines might are likely the easiest way
 ```
 $ conda create -n 'denoiSeg' python=3.7
 $ source activate denoiSeg
-$ conda install tensorflow-gpu=1.15 keras=2.2.5
+$ conda install -c conda-forge tensorflow-gpu=1.15 keras=2.2.5
 $ pip install jupyter
 $ conda install nb_conda
 ```
