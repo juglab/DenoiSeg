@@ -126,7 +126,7 @@ def isnotebook():
 
 
 def compute_labels(prediction, threshold):
-    prediction_exp = np.exp(prediction[..., 1:])
+    prediction_exp = np.exp(prediction[..., -3:])
     prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
     prediction_fg = prediction_softmax[..., 1]
     pred_thresholded = prediction_fg > threshold

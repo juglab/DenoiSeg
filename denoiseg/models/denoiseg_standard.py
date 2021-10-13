@@ -465,9 +465,9 @@ class DenoiSeg(CARE):
 
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
 
-        pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
+        pred_denoised = self.__denormalize__(pred_full[...,:self.config.n_channel_in], means, stds)
         
-        pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
+        pred = np.concatenate([pred_denoised, pred_full[...,self.config.n_channel_in:]], axis=-1)
         
         if 'C' in axes:
             pred = np.moveaxis(pred, -1, axes.index('C'))
