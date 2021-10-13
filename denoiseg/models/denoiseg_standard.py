@@ -500,12 +500,17 @@ class DenoiSeg(CARE):
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
             _metrics = [loss_standard]
         elif self.config.train_loss == 'denoiseg':
-            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={})'.format(
+            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={}, n_chan={})'.format(
                 self.config.denoiseg_alpha,
-                self.config.relative_weights))
-            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.denoiseg_alpha,
-                                                                                          self.config.relative_weights))
-            denoise_metric = eval('denoiseg_denoise_loss(weight={})'.format(self.config.denoiseg_alpha))
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={}, n_chan={})'.format(
+                1-self.config.denoiseg_alpha,
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            denoise_metric = eval('denoiseg_denoise_loss(weight={}, n_chan={})'.format(
+                self.config.denoiseg_alpha,
+                self.config.n_channel_in))
             _metrics = [loss_standard, seg_metric, denoise_metric]
         else:
             _raise('Unknown Loss!')
