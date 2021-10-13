@@ -380,21 +380,21 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_label_masks(self, X, Y, threshold, measure):
+    def predict_label_masks(self, X, Y, threshold, measure, axes='YX'):
         predicted_images = []
         precision_result = []
         for i in range(X.shape[0]):
             if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes='YX')
+                prediction = self.predict(X[i].astype(np.float32), axes=axes)
                 labels = compute_labels(prediction, threshold)
                 tmp_score = measure(Y[i], labels)
                 predicted_images.append(labels)
                 precision_result.append(tmp_score)
         return predicted_images, np.mean(precision_result)
 
-    def optimize_thresholds(self, X_val, Y_val, measure):
+    def optimize_thresholds(self, X_val, Y_val, measure, axes='YX'):
         """
          Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
 
@@ -422,7 +422,7 @@ class DenoiSeg(CARE):
         else:
             progress_bar = tqdm
         for ts in progress_bar(np.linspace(0.1, 1, 19)):
-            _, score = self.predict_label_masks(X_val, Y_val, ts, measure)
+            _, score = self.predict_label_masks(X_val, Y_val, ts, measure, axes=axes)
             precision_scores.append((ts, score))
             print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
