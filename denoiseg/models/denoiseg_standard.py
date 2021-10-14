@@ -10,6 +10,7 @@ from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json
 from csbdeep.utils.six import Path
 from csbdeep.models.base_model import suppress_without_basedir
 from csbdeep.version import __version__ as package_version
+from csbdeep.utils.tf import export_SavedModel
 
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TerminateOnNaN
@@ -581,7 +582,7 @@ class DenoiSeg(CARE):
             'probabilistic': self.config.probabilistic,
             'axes':          self.config.axes,
             'axes_div_by':   self._axes_div_by(self.config.axes),
-            'tile_overlap':  self._axes_tile_overlap(self.config.axes),
+            'tile_overlap':  self._axes_tile_overlap(self.config.axes)
         }
         export_SavedModel(self.keras_model, str(fname), meta=meta)
         # CSBDeep Export Done
@@ -714,59 +715,3 @@ class DenoiSeg(CARE):
     def _config_class(self):
         return DenoiSegConfig
 
-    
-def export_SavedModel(model, outpath, meta={}, format='zip'):
-    """Export Keras model in TensorFlow's SavedModel_ format.
-    See `Your Model in Fiji`_ to learn how to use the exported model with our CSBDeep Fiji plugins.
-    .. _SavedModel: https://www.tensorflow.org/programmers_guide/saved_model#structure_of_a_savedmodel_directory
-    .. _`Your Model in Fiji`: https://github.com/CSBDeep/CSBDeep_website/wiki/Your-Model-in-Fiji
-    Parameters
-    ----------
-    model : :class:`keras.models.Model`
-        Keras model to be exported.
-    outpath : str
-        Path of the file/folder that the model will exported to.
-    meta : dict, optional
-        Metadata to be saved in an additional ``meta.json`` file.
-    format : str, optional
-        Can be 'dir' to export as a directory or 'zip' (default) to export as a ZIP file.
-    Raises
-    ------
-    ValueError
-        Illegal arguments.
-    """
-
-    def export_to_dir(dirname):
-        if len(model.inputs) > 1 or len(model.outputs) > 1:
-            warnings.warn('Found multiple input or output layers.')
-        builder = tf.saved_model.builder.SavedModelBuilder(dirname)
-        # use name 'input'/'output' if there's just a single input/output layer
-        inputs  = dict(zip(model.input_names,model.inputs))   if len(model.inputs)  > 1 else dict(input=model.input)
-        outputs = dict(zip(model.output_names,model.outputs)) if len(model.outputs) > 1 else dict(output=model.output)
-        signature = tf.saved_model.signature_def_utils.predict_signature_def(inputs=inputs, outputs=outputs)
-        signature_def_map = { tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: signature }
-        builder.add_meta_graph_and_variables(K.get_session(),
-                                             [tf.saved_model.tag_constants.SERVING],
-                                             signature_def_map=signature_def_map)
-        builder.save()
-        if meta is not None and len(meta) > 0:
-            save_json(meta, os.path.join(dirname,'meta.json'))
-
-
-    ## checks
-    isinstance(model, tensorflow.keras.models.Model) or _raise(ValueError("'model' must be a Keras model."))
-    # supported_formats = tuple(['dir']+[name for name,description in shutil.get_archive_formats()])
-    supported_formats = 'dir','zip'
-    format in supported_formats or _raise(ValueError("Unsupported format '%s', must be one of %s." % (format,str(supported_formats))))
-
-    # remove '.zip' file name extension if necessary
-    if format == 'zip' and outpath.endswith('.zip'):
-        outpath = os.path.splitext(outpath)[0]
-
-    if format == 'dir':
-        export_to_dir(outpath)
-    else:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpsubdir = os.path.join(tmpdir,'model')
-            export_to_dir(tmpsubdir)
-            shutil.make_archive(outpath, format, tmpsubdir, './')
