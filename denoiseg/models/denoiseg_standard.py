@@ -10,9 +10,9 @@ from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json
 from csbdeep.utils.six import Path
 from csbdeep.models.base_model import suppress_without_basedir
 from csbdeep.version import __version__ as package_version
-import keras
-from keras import backend as K
-from keras.callbacks import TerminateOnNaN
+
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import TerminateOnNaN
 from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
@@ -241,16 +241,16 @@ class DenoiSeg(CARE):
             Additional arguments for :func:`prepare_model`.
         """
         if optimizer is None:
-            from keras.optimizers import Adam
-            optimizer = Adam(lr=self.config.train_learning_rate)
+            from tensorflow.keras.optimizers import Adam
+            optimizer = Adam(learning_rate=self.config.train_learning_rate)
 
         # TODO: This line is the reason for the existence of this method.
-        # TODO: CARE calls prepare_model from train, but we have to overwrite prepare_model.
+        # TODO: CARE calls prepare_model from train, but we have to overwrite prepare_model.-
         self.callbacks = self.prepare_model(self.keras_model, optimizer, self.config.train_loss, **kwargs)
 
         if self.basedir is not None:
             if self.config.train_checkpoint is not None:
-                from keras.callbacks import ModelCheckpoint
+                from tensorflow.keras.callbacks import ModelCheckpoint
                 self.callbacks.append(
                     ModelCheckpoint(str(self.logdir / self.config.train_checkpoint), save_best_only=True,
                                     save_weights_only=True))
@@ -372,7 +372,7 @@ class DenoiSeg(CARE):
                                    prob_out=self.config.probabilistic))
 
         if self.config.train_reduce_lr is not None:
-            from keras.callbacks import ReduceLROnPlateau
+            from tensorflow.keras.callbacks import ReduceLROnPlateau
             rlrop_params = self.config.train_reduce_lr
             if 'verbose' not in rlrop_params:
                 rlrop_params['verbose'] = True
@@ -493,7 +493,7 @@ class DenoiSeg(CARE):
 
         """
 
-        from keras.optimizers import Optimizer
+        from tensorflow.keras.optimizers import Optimizer
         isinstance(optimizer, Optimizer) or _raise(ValueError())
 
         if self.config.train_loss == 'seg':
@@ -754,7 +754,7 @@ def export_SavedModel(model, outpath, meta={}, format='zip'):
 
 
     ## checks
-    isinstance(model,keras.models.Model) or _raise(ValueError("'model' must be a Keras model."))
+    isinstance(model, tensorflow.keras.models.Model) or _raise(ValueError("'model' must be a Keras model."))
     # supported_formats = tuple(['dir']+[name for name,description in shutil.get_archive_formats()])
     supported_formats = 'dir','zip'
     format in supported_formats or _raise(ValueError("Unsupported format '%s', must be one of %s." % (format,str(supported_formats))))
