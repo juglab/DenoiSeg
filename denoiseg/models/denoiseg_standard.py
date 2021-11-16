@@ -208,7 +208,7 @@ class DenoiSeg(CARE):
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
-        history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
+        history = self.keras_model.fit(training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
                                                  callbacks=self.callbacks, verbose=1)
 
