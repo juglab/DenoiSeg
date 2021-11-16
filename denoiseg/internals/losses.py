@@ -1,7 +1,7 @@
-import keras.backend as K
+import tensorflow.keras.backend as K
 import tensorflow as tf
 from n2v.internals.n2v_losses import loss_mse as n2v_loss
-from tensorflow.nn import softmax_cross_entropy_with_logits_v2 as cross_entropy
+from tensorflow.nn import softmax_cross_entropy_with_logits as cross_entropy
 
 
 def loss_seg(relative_weights):
@@ -19,8 +19,7 @@ def loss_seg(relative_weights):
 
         a = tf.reduce_sum(onehot_labels, axis=-1)
 
-        loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=onehot_labels,
-                                                          logits=tf.reshape(y_pred, [-1, 3]))
+        loss = tf.nn.cross_entropy(labels=onehot_labels, logits=tf.reshape(y_pred, [-1, 3]))
 
         weighted_loss = loss * weights
 

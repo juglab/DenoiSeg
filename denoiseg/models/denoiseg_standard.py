@@ -10,9 +10,10 @@ from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, save_json
 from csbdeep.utils.six import Path
 from csbdeep.models.base_model import suppress_without_basedir
 from csbdeep.version import __version__ as package_version
-import keras
-from keras import backend as K
-from keras.callbacks import TerminateOnNaN
+from csbdeep.utils.tf import export_SavedModel
+
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import TerminateOnNaN
 from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
@@ -207,7 +208,7 @@ class DenoiSeg(CARE):
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
-        history = self.keras_model.fit_generator(generator=training_data, validation_data=(validation_X, validation_Y),
+        history = self.keras_model.fit(training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
                                                  callbacks=self.callbacks, verbose=1)
 
@@ -241,16 +242,16 @@ class DenoiSeg(CARE):
             Additional arguments for :func:`prepare_model`.
         """
         if optimizer is None:
-            from keras.optimizers import Adam
-            optimizer = Adam(lr=self.config.train_learning_rate)
+            from tensorflow.keras.optimizers import Adam
+            optimizer = Adam(learning_rate=self.config.train_learning_rate)
 
         # TODO: This line is the reason for the existence of this method.
-        # TODO: CARE calls prepare_model from train, but we have to overwrite prepare_model.
+        # TODO: CARE calls prepare_model from train, but we have to overwrite prepare_model.-
         self.callbacks = self.prepare_model(self.keras_model, optimizer, self.config.train_loss, **kwargs)
 
         if self.basedir is not None:
             if self.config.train_checkpoint is not None:
-                from keras.callbacks import ModelCheckpoint
+                from tensorflow.keras.callbacks import ModelCheckpoint
                 self.callbacks.append(
                     ModelCheckpoint(str(self.logdir / self.config.train_checkpoint), save_best_only=True,
                                     save_weights_only=True))
@@ -258,121 +259,124 @@ class DenoiSeg(CARE):
                     ModelCheckpoint(str(self.logdir / 'weights_now.h5'), save_best_only=False, save_weights_only=True))
 
             if self.config.train_tensorboard:
-                from csbdeep.utils.tf import CARETensorBoard
-
-                class SegTensorBoard(CARETensorBoard):
-                    def set_model(self, model):
-                        self.model = model
-                        self.sess = K.get_session()
-                        tf_sums = []
-
-                        if self.compute_histograms and self.freq and self.merged is None:
-                            for layer in self.model.layers:
-                                for weight in layer.weights:
-                                    tf_sums.append(tf.compat.v1.summary.histogram(weight.name, weight))
-
-                                if hasattr(layer, 'output'):
-                                    tf_sums.append(tf.compat.v1.summary.histogram('{}_out'.format(layer.name),
-                                                                        layer.output))
-
-                        def _gt_shape(output_shape):
-                            return list(output_shape[:-1]) + [1]
-
-                        self.gt_outputs = [K.placeholder(shape=_gt_shape(K.int_shape(x))) for x in self.model.outputs]
-
-                        n_inputs, n_outputs = len(self.model.inputs), len(self.model.outputs)
-                        image_for_inputs = np.arange(
-                            n_inputs) if self.image_for_inputs is None else self.image_for_inputs
-                        image_for_outputs = np.arange(
-                            n_outputs) if self.image_for_outputs is None else self.image_for_outputs
-
-                        input_slices = (slice(None),) if self.input_slices is None else self.input_slices
-                        output_slices = (slice(None),) if self.output_slices is None else self.output_slices
-                        if isinstance(input_slices[0], slice):  # apply same slices to all inputs
-                            input_slices = [input_slices] * len(image_for_inputs)
-                        if isinstance(output_slices[0], slice):  # apply same slices to all outputs
-                            output_slices = [output_slices] * len(image_for_outputs)
-                        len(input_slices) == len(image_for_inputs) or _raise(ValueError())
-                        len(output_slices) == len(image_for_outputs) or _raise(ValueError())
-
-                        def _name(prefix, layer, i, n, show_layer_names=False):
-                            return '{prefix}{i}{name}'.format(
-                                prefix=prefix,
-                                i=(i if n > 1 else ''),
-                                name='' if (layer is None or not show_layer_names) else '_' + ''.join(
-                                    layer.name.split(':')[:-1]),
-                            )
-
-                        # inputs
-                        for i, sl in zip(image_for_inputs, input_slices):
-                            layer_name = _name('net_input', self.model.inputs[i], i, n_inputs)
-                            input_layer = self.model.inputs[i][tuple(sl)]
-                            tf_sums.append(tf.compat.v1.summary.image(layer_name, input_layer, max_outputs=self.n_images))
-
-                        # outputs
-                        for i, sl in zip(image_for_outputs, output_slices):
-                            # target
-                            output_layer = self.gt_outputs[i][tuple(sl)]
-                            layer_name = _name('net_target', self.model.outputs[i], i, n_outputs)
-                            tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
-                            # prediction
-                            denoised_layer = self.model.outputs[i][..., :1][tuple(sl)]
-                            foreground_layer = self.model.outputs[i][..., 2:3][tuple(sl)]
-                            foreground_layer = K.cast(K.greater(foreground_layer, 0.5), tf.float32)
-
-                            denoised_name = _name('net_output_denoised', self.model.outputs[i], i, n_outputs)
-                            foreground_name = _name('net_output_foreground_threshold.5', self.model.outputs[i], i, n_outputs)
-                            tf_sums.append(tf.compat.v1.summary.image(denoised_name, denoised_layer, max_outputs=self.n_images))
-                            tf_sums.append(tf.compat.v1.summary.image(foreground_name, foreground_layer, max_outputs=self.n_images))
-
-                        with tf.name_scope('merged'):
-                            self.merged = tf.compat.v1.summary.merge(tf_sums)
-
-                        with tf.name_scope('summary_writer'):
-                            if self.write_graph:
-                                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir,
-                                                                    self.sess.graph)
-                            else:
-                                self.writer = tf.compat.v1.summary.FileWriter(self.log_dir)
-
-                    def on_epoch_end(self, epoch, logs=None):
-                        logs = logs or {}
-
-                        if self.validation_data and self.freq:
-                            if epoch % self.freq == 0:
-                                # TODO: implement batched calls to sess.run
-                                # (current call will likely go OOM on GPU)
-                                tensors = self.model.inputs + self.gt_outputs + self.model.sample_weights
-                                if self.model.uses_learning_phase:
-                                    tensors += [K.learning_phase()]
-                                    val_data = list(v[:self.n_images] for v in self.validation_data[:-1])
-                                    val_data += self.validation_data[-1:]
-                                else:
-                                    val_data = list(v[:self.n_images] for v in self.validation_data)
-                                val_data[1] = val_data[1][..., 3:4]
-                                feed_dict = dict(zip(tensors, val_data))
-                                result = self.sess.run([self.merged], feed_dict=feed_dict)
-                                summary_str = result[0]
-
-                                self.writer.add_summary(summary_str, epoch)
-
-                        for name, value in logs.items():
-                            if name in ['batch', 'size']:
-                                continue
-                            summary = tf.Summary()
-                            summary_value = summary.value.add()
-                            summary_value.simple_value = value.item()
-                            summary_value.tag = name
-                            self.writer.add_summary(summary, epoch)
-
-                        self.writer.flush()
-
+                from tensorflow.keras.callbacks import TensorBoard
                 self.callbacks.append(
-                    SegTensorBoard(log_dir=str(self.logdir), prefix_with_timestamp=False, n_images=3, write_images=True,
-                                   prob_out=self.config.probabilistic))
+                    TensorBoard(log_dir=str(self.logdir / 'logs'), write_graph=False, profile_batch=0))
+                # from csbdeep.utils.tf import CARETensorBoard
+                #
+                # class SegTensorBoard(CARETensorBoard):
+                #     def set_model(self, model):
+                #         self.model = model
+                #         self.sess = K.get_session()
+                #         tf_sums = []
+                #
+                #         if self.compute_histograms and self.freq and self.merged is None:
+                #             for layer in self.model.layers:
+                #                 for weight in layer.weights:
+                #                     tf_sums.append(tf.compat.v1.summary.histogram(weight.name, weight))
+                #
+                #                 if hasattr(layer, 'output'):
+                #                     tf_sums.append(tf.compat.v1.summary.histogram('{}_out'.format(layer.name),
+                #                                                         layer.output))
+                #
+                #         def _gt_shape(output_shape):
+                #             return list(output_shape[:-1]) + [1]
+                #
+                #         self.gt_outputs = [K.placeholder(shape=_gt_shape(K.int_shape(x))) for x in self.model.outputs]
+                #
+                #         n_inputs, n_outputs = len(self.model.inputs), len(self.model.outputs)
+                #         image_for_inputs = np.arange(
+                #             n_inputs) if self.image_for_inputs is None else self.image_for_inputs
+                #         image_for_outputs = np.arange(
+                #             n_outputs) if self.image_for_outputs is None else self.image_for_outputs
+                #
+                #         input_slices = (slice(None),) if self.input_slices is None else self.input_slices
+                #         output_slices = (slice(None),) if self.output_slices is None else self.output_slices
+                #         if isinstance(input_slices[0], slice):  # apply same slices to all inputs
+                #             input_slices = [input_slices] * len(image_for_inputs)
+                #         if isinstance(output_slices[0], slice):  # apply same slices to all outputs
+                #             output_slices = [output_slices] * len(image_for_outputs)
+                #         len(input_slices) == len(image_for_inputs) or _raise(ValueError())
+                #         len(output_slices) == len(image_for_outputs) or _raise(ValueError())
+                #
+                #         def _name(prefix, layer, i, n, show_layer_names=False):
+                #             return '{prefix}{i}{name}'.format(
+                #                 prefix=prefix,
+                #                 i=(i if n > 1 else ''),
+                #                 name='' if (layer is None or not show_layer_names) else '_' + ''.join(
+                #                     layer.name.split(':')[:-1]),
+                #             )
+                #
+                #         # inputs
+                #         for i, sl in zip(image_for_inputs, input_slices):
+                #             layer_name = _name('net_input', self.model.inputs[i], i, n_inputs)
+                #             input_layer = self.model.inputs[i][tuple(sl)]
+                #             tf_sums.append(tf.compat.v1.summary.image(layer_name, input_layer, max_outputs=self.n_images))
+                #
+                #         # outputs
+                #         for i, sl in zip(image_for_outputs, output_slices):
+                #             # target
+                #             output_layer = self.gt_outputs[i][tuple(sl)]
+                #             layer_name = _name('net_target', self.model.outputs[i], i, n_outputs)
+                #             tf_sums.append(tf.compat.v1.summary.image(layer_name, output_layer, max_outputs=self.n_images))
+                #             # prediction
+                #             denoised_layer = self.model.outputs[i][..., :1][tuple(sl)]
+                #             foreground_layer = self.model.outputs[i][..., 2:3][tuple(sl)]
+                #             foreground_layer = K.cast(K.greater(foreground_layer, 0.5), tf.float32)
+                #
+                #             denoised_name = _name('net_output_denoised', self.model.outputs[i], i, n_outputs)
+                #             foreground_name = _name('net_output_foreground_threshold.5', self.model.outputs[i], i, n_outputs)
+                #             tf_sums.append(tf.compat.v1.summary.image(denoised_name, denoised_layer, max_outputs=self.n_images))
+                #             tf_sums.append(tf.compat.v1.summary.image(foreground_name, foreground_layer, max_outputs=self.n_images))
+                #
+                #         with tf.name_scope('merged'):
+                #             self.merged = tf.compat.v1.summary.merge(tf_sums)
+                #
+                #         with tf.name_scope('summary_writer'):
+                #             if self.write_graph:
+                #                 self.writer = tf.compat.v1.summary.FileWriter(self.log_dir,
+                #                                                     self.sess.graph)
+                #             else:
+                #                 self.writer = tf.compat.v1.summary.FileWriter(self.log_dir)
+                #
+                #     def on_epoch_end(self, epoch, logs=None):
+                #         logs = logs or {}
+                #
+                #         if self.validation_data and self.freq:
+                #             if epoch % self.freq == 0:
+                #                 # TODO: implement batched calls to sess.run
+                #                 # (current call will likely go OOM on GPU)
+                #                 tensors = self.model.inputs + self.gt_outputs + self.model.sample_weights
+                #                 if self.model.uses_learning_phase:
+                #                     tensors += [K.learning_phase()]
+                #                     val_data = list(v[:self.n_images] for v in self.validation_data[:-1])
+                #                     val_data += self.validation_data[-1:]
+                #                 else:
+                #                     val_data = list(v[:self.n_images] for v in self.validation_data)
+                #                 val_data[1] = val_data[1][..., 3:4]
+                #                 feed_dict = dict(zip(tensors, val_data))
+                #                 result = self.sess.run([self.merged], feed_dict=feed_dict)
+                #                 summary_str = result[0]
+                #
+                #                 self.writer.add_summary(summary_str, epoch)
+                #
+                #         for name, value in logs.items():
+                #             if name in ['batch', 'size']:
+                #                 continue
+                #             summary = tf.Summary()
+                #             summary_value = summary.value.add()
+                #             summary_value.simple_value = value.item()
+                #             summary_value.tag = name
+                #             self.writer.add_summary(summary, epoch)
+                #
+                #         self.writer.flush()
+                #
+                # self.callbacks.append(
+                #     SegTensorBoard(log_dir=str(self.logdir), prefix_with_timestamp=False, n_images=3, write_images=True,
+                #                    prob_out=self.config.probabilistic))
 
         if self.config.train_reduce_lr is not None:
-            from keras.callbacks import ReduceLROnPlateau
+            from tensorflow.keras.callbacks import ReduceLROnPlateau
             rlrop_params = self.config.train_reduce_lr
             if 'verbose' not in rlrop_params:
                 rlrop_params['verbose'] = True
@@ -493,7 +497,7 @@ class DenoiSeg(CARE):
 
         """
 
-        from keras.optimizers import Optimizer
+        from tensorflow.keras.optimizers import Optimizer
         isinstance(optimizer, Optimizer) or _raise(ValueError())
 
         if self.config.train_loss == 'seg':
@@ -581,7 +585,7 @@ class DenoiSeg(CARE):
             'probabilistic': self.config.probabilistic,
             'axes':          self.config.axes,
             'axes_div_by':   self._axes_div_by(self.config.axes),
-            'tile_overlap':  self._axes_tile_overlap(self.config.axes),
+            'tile_overlap':  self._axes_tile_overlap(self.config.axes)
         }
         export_SavedModel(self.keras_model, str(fname), meta=meta)
         # CSBDeep Export Done
@@ -714,59 +718,3 @@ class DenoiSeg(CARE):
     def _config_class(self):
         return DenoiSegConfig
 
-    
-def export_SavedModel(model, outpath, meta={}, format='zip'):
-    """Export Keras model in TensorFlow's SavedModel_ format.
-    See `Your Model in Fiji`_ to learn how to use the exported model with our CSBDeep Fiji plugins.
-    .. _SavedModel: https://www.tensorflow.org/programmers_guide/saved_model#structure_of_a_savedmodel_directory
-    .. _`Your Model in Fiji`: https://github.com/CSBDeep/CSBDeep_website/wiki/Your-Model-in-Fiji
-    Parameters
-    ----------
-    model : :class:`keras.models.Model`
-        Keras model to be exported.
-    outpath : str
-        Path of the file/folder that the model will exported to.
-    meta : dict, optional
-        Metadata to be saved in an additional ``meta.json`` file.
-    format : str, optional
-        Can be 'dir' to export as a directory or 'zip' (default) to export as a ZIP file.
-    Raises
-    ------
-    ValueError
-        Illegal arguments.
-    """
-
-    def export_to_dir(dirname):
-        if len(model.inputs) > 1 or len(model.outputs) > 1:
-            warnings.warn('Found multiple input or output layers.')
-        builder = tf.saved_model.builder.SavedModelBuilder(dirname)
-        # use name 'input'/'output' if there's just a single input/output layer
-        inputs  = dict(zip(model.input_names,model.inputs))   if len(model.inputs)  > 1 else dict(input=model.input)
-        outputs = dict(zip(model.output_names,model.outputs)) if len(model.outputs) > 1 else dict(output=model.output)
-        signature = tf.saved_model.signature_def_utils.predict_signature_def(inputs=inputs, outputs=outputs)
-        signature_def_map = { tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: signature }
-        builder.add_meta_graph_and_variables(K.get_session(),
-                                             [tf.saved_model.tag_constants.SERVING],
-                                             signature_def_map=signature_def_map)
-        builder.save()
-        if meta is not None and len(meta) > 0:
-            save_json(meta, os.path.join(dirname,'meta.json'))
-
-
-    ## checks
-    isinstance(model,keras.models.Model) or _raise(ValueError("'model' must be a Keras model."))
-    # supported_formats = tuple(['dir']+[name for name,description in shutil.get_archive_formats()])
-    supported_formats = 'dir','zip'
-    format in supported_formats or _raise(ValueError("Unsupported format '%s', must be one of %s." % (format,str(supported_formats))))
-
-    # remove '.zip' file name extension if necessary
-    if format == 'zip' and outpath.endswith('.zip'):
-        outpath = os.path.splitext(outpath)[0]
-
-    if format == 'dir':
-        export_to_dir(outpath)
-    else:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpsubdir = os.path.join(tmpdir,'model')
-            export_to_dir(tmpsubdir)
-            shutil.make_archive(outpath, format, tmpsubdir, './')

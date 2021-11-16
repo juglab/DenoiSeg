@@ -1,6 +1,6 @@
 import argparse
 
-import keras.backend as K
+import tensorflow.keras.backend as K
 import numpy as np
 from csbdeep.utils import _raise, axes_check_and_normalize, axes_dict, backend_channels_last
 from six import string_types
