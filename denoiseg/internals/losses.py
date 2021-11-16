@@ -1,7 +1,7 @@
 import tensorflow.keras.backend as K
 import tensorflow as tf
 from n2v.internals.n2v_losses import loss_mse as n2v_loss
-from tensorflow.compat.v1.nn import softmax_cross_entropy_with_logits_v2 as cross_entropy
+from tensorflow.nn import softmax_cross_entropy_with_logits as cross_entropy
 
 
 def loss_seg(relative_weights):
