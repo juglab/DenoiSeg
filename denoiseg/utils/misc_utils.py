@@ -22,8 +22,8 @@ def create_patches(images, masks, size):
         Array of labelled training patches.
     """
 
-    patchesimages = image.extract_patches_2d(images, (size, size), 10, 0)
-    patchesmasks = image.extract_patches_2d(masks, (size, size), 10, 0)
+    patchesimages = image.extract_patches_2d(images, (size, size), max_patches=10, random_state=0)
+    patchesmasks = image.extract_patches_2d(masks, (size, size), max_patches=10, random_state=0)
     return patchesimages, patchesmasks
 
 
