@@ -52,7 +52,8 @@ $ conda install nb_conda
 Note: it is very important that the version of keras be 2.2.4 or 2.2.5, hence the explicit installation above.
 Once this is done (or you had tensorflow et al. installed already), you can install DenoiSeg with one of the following two options:
 
-#### Option 1: PIP (current stable release) 
+#### ~~Option 1: PIP (current stable release)~~
+Currently not working with the previous Conda instructions. If you nonetheless want to use the pip package, set up the Conda environment following [these instructions](https://github.com/juglab/DenoiSeg/tree/2bb8a87a189ef4a1e61d35d86181aedbebc354b3).
 ```
 $ pip install denoiseg
 ```
