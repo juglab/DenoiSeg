@@ -47,21 +47,35 @@ def loss_denoiseg(alpha=0.5, relative_weights=[1.0, 1.0, 5.0]):
 
 
 def denoiseg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0]):
-    class_weights = tf.constant([relative_weights])
+    class_weights = tf.constant(relative_weights)
 
     def seg_loss(y_true, y_pred):
         channel_axis = len(y_true.shape) - 1
+        # tf.print('CHt', channel_axis)
+        # tf.print('SHt', tf.shape(y_true))
+        # tf.print('SHp', tf.shape(y_pred))
+
         target, mask, bg, fg, b = tf.split(y_true, 5, axis=channel_axis)
         denoised, pred_bg, pred_fg, pred_b = tf.split(y_pred, 4, axis=len(y_pred.shape) - 1)
+        # tf.print('SH_bg', tf.shape(pred_bg))
+        # tf.print('SH_fg', tf.shape(pred_fg))
 
-        onehot_gt = tf.reshape(tf.stack([bg, fg, b], axis=3), [-1, 3])
+        # tf.print('OH sta', tf.shape(tf.stack([bg, fg, b], axis=4)))
+        # tf.print('OH EQ', tf.math.reduce_all(tf.math.equal(tf.reshape(tf.stack([bg, fg, b], axis=4), [-1, 3]),
+        #          tf.reshape(tf.stack([bg, fg, b], axis=3), [-1, 3]))))
+        # tf.print('OH EQ T', tf.math.reduce_all(tf.math.equal(tf.reshape(tf.stack([bg, fg, b], axis=4), [-1, 3]),
+        #          tf.reshape(tf.stack([bg, fg, b], axis=4), [-1, 3]))))
+
+        onehot_gt = tf.reshape(tf.stack([bg, fg, b], axis=-1), [-1, 3])
+
+        # tf.print('OH gt', tf.shape(onehot_gt))
+        #
+        # tf.print('W s', tf.shape(class_weights * onehot_gt))
         weighted_gt = tf.reduce_sum(class_weights * onehot_gt, axis=1)
-
+        # tf.print('W gt', tf.shape(weighted_gt))
         onehot_pred = tf.reshape(tf.stack([pred_bg, pred_fg, pred_b], axis=channel_axis), [-1, 3])
 
-        segmentation_loss = K.mean(
-            tf.reduce_sum(onehot_gt, axis=-1) * (cross_entropy(logits=onehot_pred, labels=onehot_gt) * weighted_gt)
-        )
+        segmentation_loss = K.mean(tf.reduce_sum(onehot_gt, axis=-1) * (cross_entropy(logits=onehot_pred, labels=onehot_gt) * weighted_gt))
 
         return weight * segmentation_loss
 

@@ -27,7 +27,7 @@ from tifffile import imsave
 
 from denoiseg.models import DenoiSegConfig
 from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
-from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
+from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper, DenoiSeg_ValDataWrapper
 from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
@@ -183,7 +183,6 @@ class DenoiSeg(CARE):
 
         means = np.array([float(mean) for mean in self.config.means], ndmin=len(X.shape), dtype=np.float32)
         stds = np.array([float(std) for std in self.config.stds], ndmin=len(X.shape), dtype=np.float32)
-
         X = self.__normalize__(X, means, stds)
         validation_X = self.__normalize__(validation_data[0], means, stds)
 
@@ -199,8 +198,10 @@ class DenoiSeg(CARE):
 
         # validation_Y is also validation_X plus a concatenated masking channel.
         # To speed things up, we precompute the masking vo the validation data.
+
         validation_Y = np.concatenate((validation_X, np.zeros(validation_X.shape, dtype=validation_X.dtype)),
                                       axis=axes.index('C'))
+
         n2v_utils.manipulate_val_data(validation_X, validation_Y,
                                       perc_pix=self.config.n2v_perc_pix,
                                       shape=val_patch_shape,
@@ -208,7 +209,11 @@ class DenoiSeg(CARE):
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
-        history = self.keras_model.fit(training_data, validation_data=(validation_X, validation_Y),
+        validation_data = DenoiSeg_ValDataWrapper(X=validation_X,
+                                                  Y=validation_Y,
+                                                  batch_size=self.config.train_batch_size)
+
+        history = self.keras_model.fit(training_data, validation_data=validation_data,
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
                                                  callbacks=self.callbacks, verbose=1)
 
@@ -384,21 +389,35 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_label_masks(self, X, Y, threshold, measure):
+    def predict_denoised_label_masks(self, X, Y, axes, threshold, measure):
+        """
+        :param X: Input images
+        :param Y: Input masks
+        :param axes: Axes, YX for 2d and ZYX for 3d
+        :param threshold: Current threshold step
+        :param measure: Metric
+        :return: Lists of
+        """
+        predicted_denoised = []
         predicted_images = []
         precision_result = []
+        predicted_images_b = []
         for i in range(X.shape[0]):
-            if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
+            if (np.max(Y[i])==0 and np.min(Y[i])==0):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes='YX')
-                labels = compute_labels(prediction, threshold)
+                prediction = self.predict(X[i].astype(np.float32), axes=axes)
+                prediction_denoised = prediction[..., :1]
+                labels, labels_b = compute_labels(prediction, threshold)
                 tmp_score = measure(Y[i], labels)
+                predicted_denoised.append(prediction_denoised)
                 predicted_images.append(labels)
+                predicted_images_b.append(labels_b)
                 precision_result.append(tmp_score)
-        return predicted_images, np.mean(precision_result)
+        return predicted_denoised, predicted_images, np.mean(precision_result), predicted_images_b
 
-    def optimize_thresholds(self, X_val, Y_val, measure):
+
+    def optimize_thresholds(self, X_val, Y_val, measure, axes):
         """
          Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
 
@@ -426,7 +445,7 @@ class DenoiSeg(CARE):
         else:
             progress_bar = tqdm
         for ts in progress_bar(np.linspace(0.1, 1, 19)):
-            _, score = self.predict_label_masks(X_val, Y_val, ts, measure)
+            _, _, score, _ = self.predict_denoised_label_masks(X_val, Y_val, axes, ts, measure)
             precision_scores.append((ts, score))
             print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
@@ -434,6 +453,7 @@ class DenoiSeg(CARE):
         computed_threshold = sorted_score[0]
         best_score = sorted_score[1]
         return computed_threshold, best_score
+
 
     def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
         """
@@ -468,7 +488,6 @@ class DenoiSeg(CARE):
             normalized = normalized[..., 0]
 
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
-
         pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
         
         pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
