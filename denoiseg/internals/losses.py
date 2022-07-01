@@ -50,14 +50,17 @@ def denoiseg_seg_loss(weight=0.5, relative_weights=[1.0, 1.0, 5.0], n_chan=1):
     class_weights = tf.constant([relative_weights])
 
     def seg_loss(y_true, y_pred):
+
         targets, masks, bg, fg, b = split_y_true(y_true, n_chan)
         denoiseds, pred_bg, pred_fg, pred_b = split_y_pred(y_pred, n_chan)
+
         assert len(denoiseds) == len(targets) == len(masks)
 
         onehot_gt = tf.reshape(tf.stack([bg, fg, b], axis=-1), [-1, 3])
         weighted_gt = tf.reduce_sum(class_weights * onehot_gt, axis=1)
-        onehot_pred = tf.reshape(tf.stack([pred_bg, pred_fg, pred_b], axis=channel_axis), [-1, 3])
+        onehot_pred = tf.reshape(tf.stack([pred_bg, pred_fg, pred_b], axis=len(y_true.shape) - 1), [-1, 3])
         segmentation_loss = K.mean(tf.reduce_sum(onehot_gt, axis=-1) * (cross_entropy(logits=onehot_pred, labels=onehot_gt) * weighted_gt))
+
         return weight * segmentation_loss
 
     return seg_loss
@@ -82,6 +85,7 @@ def denoiseg_denoise_loss(weight=0.5, n_chan=1):
 
     return denoise_loss
 
+
 def split_y_true(y_true, n_chan):
 
     channel_axis = len(y_true.shape) - 1
@@ -93,6 +97,7 @@ def split_y_true(y_true, n_chan):
     masks = splits[n_chan:2 * n_chan]
 
     return targets, masks, bg, fg, b
+
 
 def split_y_pred(y_pred, n_chan):
 
