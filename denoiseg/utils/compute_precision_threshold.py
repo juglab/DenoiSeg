@@ -36,6 +36,7 @@ def matching_iou(psg, fraction=0.5):
     matching[0, :] = False
     return matching
 
+
 def measure_precision(iou=0.5, partial_dataset=False):
     def precision(lab_gt, lab, iou=iou, partial_dataset=partial_dataset):
         """
@@ -129,6 +130,17 @@ def compute_labels(prediction, threshold):
     prediction_exp = np.exp(prediction[..., -3:])
     prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=2)[..., np.newaxis]
     prediction_fg = prediction_softmax[..., 1]
+
+    #prediction_exp = np.exp(prediction[..., 1:])
+    #prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=-1)[..., np.newaxis]
+    #prediction_fg = (prediction_softmax[..., 1])
+    
     pred_thresholded = prediction_fg > threshold
     labels, _ = ndimage.label(pred_thresholded)
-    return labels
+
+    prediction_b = prediction_softmax[..., 2]
+    pred_thresholded_b = prediction_b > threshold
+    labels, _ = ndimage.label(pred_thresholded)
+    labels_b, _ = ndimage.label(pred_thresholded_b)
+
+    return labels, labels_b

@@ -1,6 +1,35 @@
-from keras.utils import Sequence
+from tensorflow.keras.utils import Sequence
 
 import numpy as np
+
+
+class DenoiSeg_ValDataWrapper(Sequence):
+    def __init__(self, X, Y, batch_size):
+        assert X.shape[0] == Y.shape[0]
+        assert X.shape[0] == Y.shape[0]
+        self.X, self.Y = X, Y
+        self.batch_size = batch_size
+        self.n_chan = X.shape[-1]
+        self.perm = np.arange(len(self.X))
+
+        self.X_Batches = np.zeros_like(X, dtype=np.float32)
+        self.Y_Batches = np.zeros_like(Y, dtype=np.float32)
+
+    def __len__(self):
+        return int(np.ceil(len(self.X) / float(self.batch_size)))
+
+    # def on_epoch_end(self):
+    #     self.perm = np.arange(len(self.list_IDs))
+
+    def __getitem__(self, i):
+        idx = slice(i * self.batch_size, (i + 1) * self.batch_size)
+        idx = self.perm[idx]
+        for id in idx:
+            self.X_Batches[id, ] = self.X[id]
+            self.Y_Batches[id] = self.Y[id]
+
+        return self.X_Batches[idx], self.Y_Batches[idx]
+
 
 class DenoiSeg_DataWrapper(Sequence):
     def __init__(self, X, n2v_Y, seg_Y, batch_size, perc_pix, shape, value_manipulation):
@@ -65,7 +94,6 @@ class DenoiSeg_DataWrapper(Sequence):
                 self.Y_n2vBatches[indexing] = y_val
                 self.Y_n2vBatches[indexing_mask] = 1
                 self.X_Batches[indexing] = x_val
-
         return self.X_Batches[idx], np.concatenate((self.Y_n2vBatches[idx], self.Y_segBatches[idx]), axis=-1)
 
     @staticmethod

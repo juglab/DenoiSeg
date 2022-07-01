@@ -2,23 +2,23 @@ import numpy as np
 from skimage.segmentation import find_boundaries
 
 
-def convert_to_oneHot(data, eps=1e-8):
+def convert_to_oneHot(data, n_classes=3, eps=1e-8):
     """
     Converts labelled images (`data`) to one-hot encoding.
 
     Parameters
     ----------
     data : array(int)
-        Array of lablelled images.
+        Array of labelled images.
     Returns
     -------
     data_oneHot : array(int)
         Array of one-hot encoded images.
     """
-    data_oneHot = np.zeros((*data.shape, 3), dtype=np.float32)
+    data_oneHot = np.zeros((*data.shape, n_classes), dtype=np.float32)
     for i in range(data.shape[0]):
-        data_oneHot[i] = onehot_encoding(add_boundary_label(data[i].astype(np.int32)))
-        if ( np.abs(np.max(data[i])) <= eps ):
+        data_oneHot[i] = onehot_encoding(add_boundary_label(data[i].astype(np.int32)), n_classes=n_classes)
+        if np.abs(np.max(data[i])) <= eps:
             data_oneHot[i][...,0] *= 0
 
     return data_oneHot
@@ -68,6 +68,23 @@ def normalize(img, mean, std):
        Normalized images
     """
     return (img - mean) / std
+
+
+def normalize_min_max(img, dtype='int'):
+    """
+    :param img: Input image
+    :param dtype: Image type, int or float
+    :return: normalized image
+    """
+    if dtype == 'int':
+        min = np.iinfo(img.dtype).max
+        max = np.iinfo(img.dtype).max
+    elif dtype == 'float':
+        min = np.finfo(img.dtype).max
+        max = np.finfo(img.dtype).max
+    else:
+        raise ValueError('Incorrect dtype specified')
+    return (img - min) / (max - min)
 
 
 def denormalize(img, mean, std):
