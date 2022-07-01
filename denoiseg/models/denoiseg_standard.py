@@ -389,19 +389,21 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_denoised_label_masks(self, X, Y, axes, threshold, measure):
+    def predict_denoised_label_masks(self, X, Y, threshold, measure, axes='YX'):
         """
         :param X: Input images
         :param Y: Input masks
         :param axes: Axes, YX for 2d and ZYX for 3d
         :param threshold: Current threshold step
         :param measure: Metric
-        :return: Lists of
+        :return: Lists of predictions containing denoised image, masks, score and borders
         """
+        
         predicted_denoised = []
         predicted_images = []
         precision_result = []
         predicted_images_b = []
+        
         for i in range(X.shape[0]):
             if (np.max(Y[i])==0 and np.min(Y[i])==0):
                 continue
@@ -417,7 +419,7 @@ class DenoiSeg(CARE):
         return predicted_denoised, predicted_images, np.mean(precision_result), predicted_images_b
 
 
-    def optimize_thresholds(self, X_val, Y_val, measure, axes):
+    def optimize_thresholds(self, X_val, Y_val, measure, axes='YX'):
         """
          Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
 
@@ -445,7 +447,7 @@ class DenoiSeg(CARE):
         else:
             progress_bar = tqdm
         for ts in progress_bar(np.linspace(0.1, 1, 19)):
-            _, _, score, _ = self.predict_denoised_label_masks(X_val, Y_val, axes, ts, measure)
+            _, _, score, _ = self.predict_denoised_label_masks(X_val, Y_val, ts, measure, axes=axes)
             precision_scores.append((ts, score))
             print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
@@ -488,9 +490,8 @@ class DenoiSeg(CARE):
             normalized = normalized[..., 0]
 
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
-        pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
-        
-        pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
+        pred_denoised = self.__denormalize__(pred_full[...,:self.config.n_channel_in], means, stds)
+        pred = np.concatenate([pred_denoised, pred_full[...,self.config.n_channel_in:]], axis=-1)
         
         if 'C' in axes:
             pred = np.moveaxis(pred, -1, axes.index('C'))
@@ -523,12 +524,17 @@ class DenoiSeg(CARE):
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
             _metrics = [loss_standard]
         elif self.config.train_loss == 'denoiseg':
-            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={})'.format(
+            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={}, n_chan={})'.format(
                 self.config.denoiseg_alpha,
-                self.config.relative_weights))
-            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.denoiseg_alpha,
-                                                                                          self.config.relative_weights))
-            denoise_metric = eval('denoiseg_denoise_loss(weight={})'.format(self.config.denoiseg_alpha))
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={}, n_chan={})'.format(
+                1-self.config.denoiseg_alpha,
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            denoise_metric = eval('denoiseg_denoise_loss(weight={}, n_chan={})'.format(
+                self.config.denoiseg_alpha,
+                self.config.n_channel_in))
             _metrics = [loss_standard, seg_metric, denoise_metric]
         else:
             _raise('Unknown Loss!')

@@ -64,7 +64,7 @@ class DenoiSeg_DataWrapper(Sequence):
 
         self.X_Batches = np.zeros((self.X.shape[0], *self.shape, self.n_chan), dtype=np.float32)
         self.Y_n2vBatches = np.zeros((self.n2v_Y.shape[0], *self.shape, 2 * self.n_chan), dtype=np.float32)
-        self.Y_segBatches = np.zeros((self.seg_Y.shape[0], *self.shape, 3 * self.n_chan), dtype=np.float32)
+        self.Y_segBatches = np.zeros((self.seg_Y.shape[0], *self.shape, 3), dtype=np.float32)
 
     def __len__(self):
         return int(np.ceil(len(self.X) / float(self.batch_size)))
