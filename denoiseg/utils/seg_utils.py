@@ -87,6 +87,23 @@ def normalize_min_max(img, dtype='int'):
     return (img - min) / (max - min)
 
 
+def denormalize_min_max(img, dtype='int'):
+    """
+    :param img: Input image
+    :param dtype: Image type, int or float
+    :return: normalized image
+    """
+    if dtype == 'int':
+        min = np.iinfo(img.dtype).max
+        max = np.iinfo(img.dtype).max
+    elif dtype == 'float':
+        min = np.finfo(img.dtype).max
+        max = np.finfo(img.dtype).max
+    else:
+        raise ValueError('Incorrect dtype specified')
+    return img * (max - min) + min
+
+
 def denormalize(img, mean, std):
     """
     Mean-Std De-Normalization.

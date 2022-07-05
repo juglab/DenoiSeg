@@ -71,7 +71,7 @@ class DenoiSegConfig(argparse.Namespace):
         """See class docstring"""
 
         # X is empty if config is None
-        if  X.size != 0:
+        if X.size != 0:
             assert len(X.shape) == 4 or len(X.shape) == 5, "Only 'SZYXC' or 'SYXC' as dimensions is supported."
 
             n_dim = len(X.shape) - 2
@@ -115,7 +115,7 @@ class DenoiSegConfig(argparse.Namespace):
             self.n_dim = n_dim
             self.axes = axes
             # fixed parameters
-            self.n_channel_in = 1
+            self.n_channel_in = kwargs['n_channel_in']
             self.n_channel_out = 4
             self.train_loss = 'denoiseg'
 

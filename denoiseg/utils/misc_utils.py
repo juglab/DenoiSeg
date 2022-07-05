@@ -164,37 +164,22 @@ def shuffle_train_data(X_train, Y_train, random_seed):
     return X_train, Y_train
 
 
-def augment_data(X_train, Y_train):
+def augment_data(array, axes: str):
     """
     Augments the data 8-fold by 90 degree rotations and flipping.
-
-    Parameters
-    ----------
-    X_train : array(float)
-        Array of source images.
-    Y_train : float
-        Array of label images.
-    Returns
-    -------
-    X_train_aug : array(float)
-        Augmented array of training images.
-    Y_train_aug : array(float)
-        Augmented array of labelled training images.
+    Takes a dimension S.
     """
-    X_ = X_train.copy()
+    # Adapted from DenoiSeg, in order to work with the following order `SZYXC`
+    ind_x = axes.find('X')
+    ind_y = axes.find('Y')
 
-    X_train_aug = np.concatenate((X_train, np.rot90(X_, 1, (-2, -1))))
-    X_train_aug = np.concatenate((X_train_aug, np.rot90(X_, 2, (-2, -1))))
-    X_train_aug = np.concatenate((X_train_aug, np.rot90(X_, 3, (-2, -1))))
-    X_train_aug = np.concatenate((X_train_aug, np.flip(X_train_aug, axis=1)))
+    # rotations
+    _x = array.copy()
+    X_rot = [np.rot90(_x, i, (ind_y, ind_x)) for i in range(4)]
+    X_rot = np.concatenate(X_rot, axis=0)
 
-    Y_ = Y_train.copy()
-    Y_train_aug = np.concatenate((Y_train, np.rot90(Y_, 1, (-2, -1))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.rot90(Y_, 2, (-2, -1))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.rot90(Y_, 3, (-2, -1))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.flip(Y_train_aug, axis=1)))
+    # flip
+    X_flip = np.flip(X_rot, axis=ind_y)
 
-    print('Raw image size after augmentation', X_train_aug.shape)
-    print('Mask size after augmentation', Y_train_aug.shape)
+    return np.concatenate([X_rot, X_flip], axis=0)
 
-    return X_train_aug, Y_train_aug

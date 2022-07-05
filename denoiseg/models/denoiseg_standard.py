@@ -402,7 +402,7 @@ class DenoiSeg(CARE):
         predicted_denoised = []
         predicted_images = []
         precision_result = []
-        predicted_images_b = []
+        predictions_binary = []
         
         for i in range(X.shape[0]):
             if (np.max(Y[i])==0 and np.min(Y[i])==0):
@@ -410,13 +410,13 @@ class DenoiSeg(CARE):
             else:
                 prediction = self.predict(X[i].astype(np.float32), axes=axes)
                 prediction_denoised = prediction[..., :1]
-                labels, labels_b = compute_labels(prediction, threshold)
+                labels, prediction_binary = compute_labels(prediction, threshold)
                 tmp_score = measure(Y[i], labels)
                 predicted_denoised.append(prediction_denoised)
                 predicted_images.append(labels)
-                predicted_images_b.append(labels_b)
+                predictions_binary.append(prediction_binary)
                 precision_result.append(tmp_score)
-        return predicted_denoised, predicted_images, np.mean(precision_result), predicted_images_b
+        return predicted_denoised, predicted_images, np.mean(precision_result), predictions_binary
 
 
     def optimize_thresholds(self, X_val, Y_val, measure, axes='YX'):
@@ -548,7 +548,6 @@ class DenoiSeg(CARE):
 
     def __normalize__(self, data, means, stds):
         return (data - means) / stds
-
 
     def __denormalize__(self, data, means, stds):
         return (data * stds) + means
