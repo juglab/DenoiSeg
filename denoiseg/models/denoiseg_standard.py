@@ -14,6 +14,8 @@ from csbdeep.utils.tf import export_SavedModel
 
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TerminateOnNaN
+from tensorflow.keras import mixed_precision
+
 from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
@@ -207,13 +209,15 @@ class DenoiSeg(CARE):
                                       shape=val_patch_shape,
                                       value_manipulation=manipulator)
 
+        print('val shapes', validation_X.shape, validation_Y.shape)
+
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
-        validation_data = DenoiSeg_ValDataWrapper(X=validation_X,
-                                                  Y=validation_Y,
-                                                  batch_size=self.config.train_batch_size)
+        # validation_data = DenoiSeg_ValDataWrapper(X=validation_X,
+        #                                           Y=validation_Y,
+        #                                           batch_size=self.config.train_batch_size)
 
-        history = self.keras_model.fit(training_data, validation_data=validation_data,
+        history = self.keras_model.fit(training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
                                                  callbacks=self.callbacks, verbose=1)
 
@@ -389,13 +393,15 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_denoised_label_masks(self, X, Y, threshold, measure, axes='YX'):
+    def predict_denoised_label_masks(self, X, Y, threshold, measure, axes='YX', n_tiles=None):
         """
         :param X: Input images
         :param Y: Input masks
         :param axes: Axes, YX for 2d and ZYX for 3d
         :param threshold: Current threshold step
         :param measure: Metric
+        :param n_tiles Number of tile to split image into during prediction.
+        None for no split. 4 is enough for most cases in 2D
         :return: Lists of predictions containing denoised image, masks, score and borders
         """
         
@@ -408,9 +414,9 @@ class DenoiSeg(CARE):
             if (np.max(Y[i])==0 and np.min(Y[i])==0):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes=axes)
+                prediction = self.predict(X[i].astype(np.float32), axes=axes, softmax=True, n_tiles=n_tiles)
                 prediction_denoised = prediction[..., :1]
-                labels, prediction_binary = compute_labels(prediction, threshold)
+                labels, prediction_binary = compute_labels(prediction[..., 1:], threshold)
                 tmp_score = measure(Y[i], labels)
                 predicted_denoised.append(prediction_denoised)
                 predicted_images.append(labels)
@@ -457,7 +463,7 @@ class DenoiSeg(CARE):
         return computed_threshold, best_score
 
 
-    def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
+    def predict(self, img, axes, softmax=False, resizer=PadAndCropResizer(), n_tiles=None):
         """
         Apply the network to so far unseen data. 
         Parameters
@@ -490,8 +496,9 @@ class DenoiSeg(CARE):
             normalized = normalized[..., 0]
 
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
-        pred_denoised = self.__denormalize__(pred_full[...,:self.config.n_channel_in], means, stds)
-        pred = np.concatenate([pred_denoised, pred_full[...,self.config.n_channel_in:]], axis=-1)
+        pred_denoised = self.__denormalize__(pred_full[..., :self.config.n_channel_in], means, stds)
+        pred_softmax = self._softmax(pred_full[..., self.config.n_channel_in:], softmax)
+        pred = np.concatenate([pred_denoised, pred_softmax], axis=-1)
         
         if 'C' in axes:
             pred = np.moveaxis(pred, -1, axes.index('C'))
@@ -541,10 +548,16 @@ class DenoiSeg(CARE):
 
         callbacks = [TerminateOnNaN()]
 
+        # mixed precision
+        # mixed_precision.set_global_policy('mixed_float16')
+
         # compile model
         model.compile(optimizer=optimizer, loss=loss_standard, metrics=_metrics)
 
         return callbacks
+
+    def _softmax(self, x, apply=False):
+        return np.exp(x) / np.sum(np.exp(x), axis=-1)[..., np.newaxis] if apply else x
 
     def __normalize__(self, data, means, stds):
         return (data - means) / stds

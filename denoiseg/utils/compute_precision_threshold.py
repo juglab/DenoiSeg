@@ -127,9 +127,7 @@ def isnotebook():
 
 
 def compute_labels(prediction, threshold):
-    prediction_exp = np.exp(prediction[..., 1:])
-    prediction_softmax = prediction_exp / np.sum(prediction_exp, axis=-1)[..., np.newaxis]
-    prediction_fg = prediction_softmax[..., 1]
+    prediction_fg = prediction[..., 1]
     
     pred_thresholded = prediction_fg > threshold
     labels, _ = ndimage.label(pred_thresholded)

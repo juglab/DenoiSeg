@@ -70,6 +70,17 @@ class DenoiSegConfig(argparse.Namespace):
     def __init__(self, X, **kwargs):
         """See class docstring"""
 
+        # means, stds = [], []
+
+        # # Check if X is a list or an array
+        # if isinstance(X, (list, tuple)):
+        #     #TODO finish mean/std calc, needs refactoring
+        #     for im in X:
+        #         for i in range(X[0].shape[-1]):
+        #             means.append(np.mean(im[..., i]))
+        #             stds.append(np.std(im[..., i]))
+        #         X = X[0]
+
         # X is empty if config is None
         if X.size != 0:
             assert len(X.shape) == 4 or len(X.shape) == 5, "Only 'SZYXC' or 'SYXC' as dimensions is supported."
@@ -139,7 +150,7 @@ class DenoiSegConfig(argparse.Namespace):
             self.train_batch_size = 128
             self.train_tensorboard = False
             self.train_checkpoint = 'weights_best.h5'
-            self.train_checkpoint_last  = 'weights_last.h5'
+            self.train_checkpoint_last = 'weights_last.h5'
             self.train_checkpoint_epoch = 'weights_now.h5'
             self.train_reduce_lr = {'monitor': 'val_loss', 'factor': 0.5, 'patience': 10}
             self.batch_norm = True

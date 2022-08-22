@@ -3,6 +3,7 @@ import glob
 import shutil
 import tifffile
 import numpy as np
+import tensorflow as tf
 from pathlib import Path
 from joblib import Parallel, delayed
 from sklearn.model_selection import train_test_split
@@ -147,7 +148,7 @@ def shuffle_train_data(X_train, Y_train, random_seed):
     ----------
     X_train : array(float)
         Array of source images.
-    Y_train : float
+    Y_train : array(float)
         Array of label images.
     Returns
     -------
@@ -169,6 +170,9 @@ def augment_data(array, axes: str):
     Augments the data 8-fold by 90 degree rotations and flipping.
     Takes a dimension S.
     """
+
+
+    # TODO add
     # Adapted from DenoiSeg, in order to work with the following order `SZYXC`
     ind_x = axes.find('X')
     ind_y = axes.find('Y')
@@ -183,3 +187,11 @@ def augment_data(array, axes: str):
 
     return np.concatenate([X_rot, X_flip], axis=0)
 
+
+class PrintingCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+      gpu_dict = tf.config.experimental.get_memory_info('GPU:0')
+      tf.print(f"\n GPU memory details [current: {float(gpu_dict['current']) / (1024 ** 3)} gb, "
+               f"peak: {float(gpu_dict['current']) / (1024 ** 3)} gb]")
+      tf.print(self)
+      tf.print('\n DTYPE {}')
