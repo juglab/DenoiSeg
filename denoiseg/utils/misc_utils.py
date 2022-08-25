@@ -44,21 +44,6 @@ def add_noise(image, sigma):
     return noisy
 
 
-def crop_3d(img, crop_z, crop_y, crop_x):
-    """
-    Used to crop 3d volume in 2 dimensions by equal values and separately crop Z dimension
-    :param img: Input volume
-    :param crop_z: Number of slices in Z dimension
-    :param crop_y: Number of pixels to crop from y axis
-    :param crop_x: Number of pixels to crop from x axis
-    """
-    z, y, x = img.shape
-    start_z = (z-crop_z) // 2
-    start_y = (y // 2) - (crop_y // 2)
-    start_x = (x // 2) - (crop_x // 2)
-    return img[start_z:start_z + 32, start_y:start_y + crop_y, start_x:start_x + crop_x]
-
-
 def read_images(path):
     """
     :param path: List of pathlike objects
@@ -187,11 +172,3 @@ def augment_data(array, axes: str):
 
     return np.concatenate([X_rot, X_flip], axis=0)
 
-
-class PrintingCallback(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs=None):
-      gpu_dict = tf.config.experimental.get_memory_info('GPU:0')
-      tf.print(f"\n GPU memory details [current: {float(gpu_dict['current']) / (1024 ** 3)} gb, "
-               f"peak: {float(gpu_dict['current']) / (1024 ** 3)} gb]")
-      tf.print(self)
-      tf.print('\n DTYPE {}')

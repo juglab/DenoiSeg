@@ -111,8 +111,11 @@ def extract_patches(data, num_patches=None, shape=(256, 256)):
             elif data.shape[1] == shape[0] and data.shape[2] == shape[1]:
                 return data
             else:
-                print("'shape' is too big.")
+                print('Incorrect shape')
         elif n_dims == 3:
+            target = int((max(16, 2 ** np.ceil(np.log2(data.shape[1])))))
+            pad = target - data.shape[1]
+            data = np.pad(data, (int(np.ceil(pad / 2)), int(np.floor(pad / 2))), 'constant')
             if data.shape[1] >= shape[0] and data.shape[2] >= shape[1] and data.shape[3] >= shape[2]:
                 for z in range(0, data.shape[1] - shape[0] + 1, shape[0]):
                     for y in range(0, data.shape[2] - shape[1] + 1, shape[1]):
@@ -123,7 +126,7 @@ def extract_patches(data, num_patches=None, shape=(256, 256)):
             elif data.shape[1] == shape[0] and data.shape[2] == shape[1] and data.shape[3] == shape[2]:
                 return data
             else:
-                print("'shape' is too big.")
+                print('Incorrect shape')
         else:
             print('Not implemented for more than 4 dimensional (ZYXC) data.')
     else:
