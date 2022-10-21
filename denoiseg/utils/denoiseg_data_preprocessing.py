@@ -189,5 +189,5 @@ def augment_patches(patches, axes: str):
     # flip
     X_flip = np.flip(X_rot, axis=ind_y)
 
-    # return concatenated along S axis
+    # return concatenated augmentations along S axis
     return np.concatenate([X_rot, X_flip], axis=axes.find('S'))
