@@ -4,15 +4,18 @@ from denoiseg.utils.misc_utils import shuffle_train_data
 
 def generate_patches_from_list(data,
                                masks,
+                               axes,
                                num_patches_per_img=None,
                                shape=(256, 256),
                                augment=True,
-                               shuffle=False, seed=1):
+                               shuffle=False,
+                               seed=1):
     """
     Extracts patches from 'list_data', which is a list of images, and returns them in a 'numpy-array'. The images
     can have different dimensionality.
     Parameters
     ----------
+    seed
     data                : list(array(float))
                           List of images
 
@@ -20,7 +23,7 @@ def generate_patches_from_list(data,
                           List of masks
 
     axes                : str
-                          Possible dimesions include S(number of samples), ZYX(dimesions of a single sample),
+                          Possible dimensions include S(number of samples), ZYX(dimesions of a single sample),
                           C(channel, can be singleton dimension). E.g., SYXC in case of 2D data with S samples of shape YX
     num_patches_per_img : int, optional(default=None)
                           Number of patches to extract per image. If 'None', as many patches as fit i nto the
@@ -42,9 +45,9 @@ def generate_patches_from_list(data,
 
     for img, mask in zip(data, masks):
         for s in range(img.shape[0]):
-            p = generate_patches(img[s][np.newaxis], num_patches=num_patches_per_img, shape=shape,
+            p = generate_patches(img[s][np.newaxis], axes, num_patches=num_patches_per_img, shape=shape,
                                  augment=augment)
-            m = generate_patches(mask[s][np.newaxis], num_patches=num_patches_per_img, shape=shape,
+            m = generate_patches(mask[s][np.newaxis], axes, num_patches=num_patches_per_img, shape=shape,
                                  augment=augment)
 
             image_patches.append(p)
@@ -59,7 +62,7 @@ def generate_patches_from_list(data,
     return train_images, train_masks
 
 
-def generate_patches(data, num_patches=None, shape=(256, 256), augment=True, shuffle=False):
+def generate_patches(data, axes, num_patches=None, shape=(256, 256), augment=True, shuffle=False):
     """
     Extracts patches from 'data'. The patches can be augmented, which means they get rotated three times
     in XY-Plane and flipped along the X-Axis. Augmentation leads to an eight-fold increase in training data.
@@ -87,7 +90,7 @@ def generate_patches(data, num_patches=None, shape=(256, 256), augment=True, shu
     patches = extract_patches(data, num_patches=num_patches, shape=shape)
     if shape[-2] == shape[-1]:
         if augment:
-            patches = augment_patches(patches=patches)
+            patches = augment_patches(patches=patches, axes=axes)
     else:
         if augment:
             print("XY-Plane is not square. Omit augmentation!")
@@ -99,7 +102,7 @@ def generate_patches(data, num_patches=None, shape=(256, 256), augment=True, shu
 
 def extract_patches(data, num_patches=None, shape=(256, 256)):
     n_dims = len(shape)
-    if num_patches == None:
+    if num_patches is None:
         patches = []
         if n_dims == 2:
             if data.shape[1] > shape[0] and data.shape[2] > shape[1]:
@@ -160,17 +163,31 @@ def extract_patches(data, num_patches=None, shape=(256, 256)):
             print('Not implemented for more than 4 dimensional (ZYXC) data.')
 
 
-def augment_patches(patches):
-    if len(patches.shape[1:]) == 2:
-        augmented = np.concatenate((patches,
-                                    np.rot90(patches, k=1, axes=(1, 2)),
-                                    np.rot90(patches, k=2, axes=(1, 2)),
-                                    np.rot90(patches, k=3, axes=(1, 2))))
-    elif len(patches.shape[1:]) == 3:
-        augmented = np.concatenate((patches,
-                                    np.rot90(patches, k=1, axes=(2, 3)),
-                                    np.rot90(patches, k=2, axes=(2, 3)),
-                                    np.rot90(patches, k=3, axes=(2, 3))))
+def augment_patches(patches, axes: str):
+    """
+    Performs an 8-fold augmentation (3 rotations in (XY), 1 flip) of an array. The array should have axes S(Z)YX(C).
 
-    augmented = np.concatenate((augmented, np.flip(augmented, axis=-2)))
-    return augmented
+    Parameters
+    ----------
+    patches: Patches along the 1st dimension of a numpy array
+    axes: S, (Z), X, Y and (C)
+
+    Returns
+    -------
+    Augmented patches with axes S(Z)YX(C).
+    """
+    if 'S' not in axes:
+        raise ValueError('S should be in the axes.')
+
+    ind_x = axes.find('X')
+    ind_y = axes.find('Y')
+
+    # rotations
+    X_rot = [np.rot90(patches, i, (ind_y, ind_x)) for i in range(4)]
+    X_rot = np.concatenate(X_rot, axis=0)
+
+    # flip
+    X_flip = np.flip(X_rot, axis=ind_y)
+
+    # return concatenated along S axis
+    return np.concatenate([X_rot, X_flip], axis=axes.find('S'))

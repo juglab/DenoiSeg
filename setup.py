@@ -42,6 +42,7 @@ setup(name='denoiseg',
           "pathlib2;python_version<'3'",
           "backports.tempfile;python_version<'3.4'",
           "csbdeep>=0.7.2",
+          "numpy",
           "numba",
           "scikit-learn",
           "scikit-image"
