@@ -179,15 +179,16 @@ def augment_patches(patches, axes: str):
     if 'S' not in axes:
         raise ValueError('S should be in the axes.')
 
+    ind_S = axes.find('S')
     ind_x = axes.find('X')
     ind_y = axes.find('Y')
 
     # rotations
     X_rot = [np.rot90(patches, i, (ind_y, ind_x)) for i in range(4)]
-    X_rot = np.concatenate(X_rot, axis=0)
+    X_rot = np.concatenate(X_rot, axis=ind_S)
 
     # flip
     X_flip = np.flip(X_rot, axis=ind_y)
 
     # return concatenated augmentations along S axis
-    return np.concatenate([X_rot, X_flip], axis=axes.find('S'))
+    return np.concatenate([X_rot, X_flip], axis=ind_S)
