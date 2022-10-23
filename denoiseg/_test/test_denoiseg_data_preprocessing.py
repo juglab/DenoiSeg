@@ -1,7 +1,6 @@
-import pytest
 import numpy as np
 
-from denoiseg.utils.denoiseg_data_preprocessing import augment_patches
+from denoiseg.utils.denoiseg_data_preprocessing import augment_patches, extract_patches
 
 
 def test_augment_data_simple():
@@ -145,3 +144,37 @@ def test_augment_data(shape, axes):
     x_aug = augment_patches(x, axes)
 
     assert x_aug.shape == (x.shape[0] * 8,) + x.shape[1:]
+
+
+@pytest.mark.parametrize('shape, axes', [((1, 8, 8), 'SYX'),
+                                         ((2, 8, 8), 'SYX'),
+                                         ((2, 8, 8, 1), 'SYXC'),
+                                         ((2, 8, 8, 3), 'SYXC'),
+                                         ((1, 8, 8, 8), 'SZYX'),
+                                         ((2, 8, 8, 8), 'SZYX'),
+                                         ((1, 8, 8, 8, 3), 'SZYXC')])
+def test_extract_patches_no_num(shape, axes):
+    """
+    Test extracting patches without specifying a patch number.
+    """
+    images = np.ones(shape)
+
+    patch_shape = (4, 4)
+    if 'Z' in axes:
+        patch_shape = patch_shape + (4,)
+
+    for i in range(shape[0]):
+        patches = extract_patches(images[0][np.newaxis], axes, shape=patch_shape)
+
+        if 'Z' in axes:
+            assert patches.shape[0] == 576  # todo that can't be?!
+        else:
+            assert patches.shape[0] == 4
+
+        # shape without S
+        expected_shape = patch_shape
+        if 'C' in axes:
+            expected_shape = expected_shape + (shape[-1],)
+
+        assert patches.shape[1:] == expected_shape
+
