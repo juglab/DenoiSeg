@@ -37,7 +37,7 @@ setup(name='denoiseg',
       ],
 
       install_requires=[
-	      "n2v>=0.3.1",
+	      "n2v>=0.3.2",
           "wrapt<=1.12.1",
           "pathlib2;python_version<'3'",
           "backports.tempfile;python_version<'3.4'",
