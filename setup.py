@@ -46,7 +46,4 @@ setup(name='denoiseg',
           "scikit-learn",
           "scikit-image"
       ],
-      extras_require={
-          "testing": ["pytest"]
-      }
       )

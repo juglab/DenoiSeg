@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from denoiseg.utils.denoiseg_data_preprocessing import augment_patches, extract_patches
