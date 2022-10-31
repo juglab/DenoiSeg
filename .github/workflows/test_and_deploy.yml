@@ -19,6 +19,9 @@ jobs:
       matrix:
         platform: [ubuntu-latest, windows-latest, macos-latest]
         python-version: [3.7, 3.8, 3.9, '3.10']
+        exclude:
+          - platform: macos-latest
+            python-version: '3.10' # exclude macOS and python 3.10 because it currently hangs
 
     steps:
       - uses: actions/checkout@v3
