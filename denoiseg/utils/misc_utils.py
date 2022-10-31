@@ -1,4 +1,12 @@
+import os
+import glob
+import shutil
+import tifffile
 import numpy as np
+import tensorflow as tf
+from pathlib import Path
+from joblib import Parallel, delayed
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction import image
 
 
@@ -25,6 +33,24 @@ def create_patches(images, masks, size):
     patchesimages = image.extract_patches_2d(images, (size, size), max_patches=10, random_state=0)
     patchesmasks = image.extract_patches_2d(masks, (size, size), max_patches=10, random_state=0)
     return patchesimages, patchesmasks
+
+
+def add_noise(image, sigma):
+    mean = 0
+    img = np.array(image).astype(np.float32)
+    gauss = np.random.normal(mean, sigma, image.shape)
+    gauss = gauss.reshape(image.shape)
+    noisy = img + gauss
+    return noisy
+
+
+def read_images(path):
+    """
+    :param path: List of pathlike objects
+    :return: Array of images
+    """
+    images = Parallel(n_jobs=4, prefer='threads')(delayed(tifffile.imread)(p) for p in path)
+    return np.stack(images)
 
 
 def combine_train_test_data(X_train, Y_train, X_test, Y_test):
@@ -66,6 +92,39 @@ def combine_train_test_data(X_train, Y_train, X_test, Y_test):
     return X_train_N2V, Y_train_N2V
 
 
+def split_train_test_data(data_path: str, test_subset=0.2, seed=1000):
+    """
+        Splits the `train` directory into `test` directory using the partition percentage of `subset`.
+        Parameters
+        ----------
+        data_path: string
+            Dataset root, without train
+        subset: float
+            Test percentage
+        seed: intege
+            Reproducibility constant.
+    """
+
+    # Initial location
+    images_dir = Path(data_path) / 'train' / 'images'
+    masks_dir = Path(data_path) / 'train' / 'masks'
+
+    image_names = sorted(list(images_dir.rglob('*.tif')))
+    mask_names = sorted(list(masks_dir.rglob( '*.tif')))
+    images_train, images_test, masks_train, masks_test = train_test_split(image_names,
+                                                                          mask_names,
+                                                                          test_size=test_subset,
+                                                                          random_state=seed)
+    # Create test dirs
+    (Path(data_path) / 'test' / 'images').mkdir(parents=True, exist_ok=True)
+    (Path(data_path) / 'test' / 'masks').mkdir(parents=True, exist_ok=True)
+
+    for i in range(len(images_test)):
+        shutil.move(str(images_test[i]), str(Path(data_path) / 'test' / 'images'))
+        shutil.move(str(masks_test[i]), str(Path(data_path) / 'test' / 'masks'))
+    print(f'Test Images/Masks saved at {Path(data_path) / "test"}')
+
+
 def shuffle_train_data(X_train, Y_train, random_seed):
     """
     Shuffles data with seed 1.
@@ -74,7 +133,7 @@ def shuffle_train_data(X_train, Y_train, random_seed):
     ----------
     X_train : array(float)
         Array of source images.
-    Y_train : float
+    Y_train : array(float)
         Array of label images.
     Returns
     -------
@@ -91,38 +150,25 @@ def shuffle_train_data(X_train, Y_train, random_seed):
     return X_train, Y_train
 
 
-def augment_data(X_train, Y_train):
+def augment_data(array, axes: str):
     """
     Augments the data 8-fold by 90 degree rotations and flipping.
-
-    Parameters
-    ----------
-    X_train : array(float)
-        Array of source images.
-    Y_train : float
-        Array of label images.
-    Returns
-    -------
-    X_train_aug : array(float)
-        Augmented array of training images.
-    Y_train_aug : array(float)
-        Augmented array of labelled training images.
+    Takes a dimension S.
     """
-    X_ = X_train.copy()
 
-    X_train_aug = np.concatenate((X_train, np.rot90(X_, 1, (1, 2))))
-    X_train_aug = np.concatenate((X_train_aug, np.rot90(X_, 2, (1, 2))))
-    X_train_aug = np.concatenate((X_train_aug, np.rot90(X_, 3, (1, 2))))
-    X_train_aug = np.concatenate((X_train_aug, np.flip(X_train_aug, axis=1)))
 
-    Y_ = Y_train.copy()
+    # TODO add
+    # Adapted from DenoiSeg, in order to work with the following order `SZYXC`
+    ind_x = axes.find('X')
+    ind_y = axes.find('Y')
 
-    Y_train_aug = np.concatenate((Y_train, np.rot90(Y_, 1, (1, 2))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.rot90(Y_, 2, (1, 2))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.rot90(Y_, 3, (1, 2))))
-    Y_train_aug = np.concatenate((Y_train_aug, np.flip(Y_train_aug, axis=1)))
+    # rotations
+    _x = array.copy()
+    X_rot = [np.rot90(_x, i, (ind_y, ind_x)) for i in range(4)]
+    X_rot = np.concatenate(X_rot, axis=0)
 
-    print('Raw image size after augmentation', X_train_aug.shape)
-    print('Mask size after augmentation', Y_train_aug.shape)
+    # flip
+    X_flip = np.flip(X_rot, axis=ind_y)
 
-    return X_train_aug, Y_train_aug
+    return np.concatenate([X_rot, X_flip], axis=0)
+

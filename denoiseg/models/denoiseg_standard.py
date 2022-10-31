@@ -14,6 +14,8 @@ from csbdeep.utils.tf import export_SavedModel
 
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TerminateOnNaN
+from tensorflow.keras import mixed_precision
+
 from n2v.utils import n2v_utils
 from scipy import ndimage
 from six import string_types
@@ -27,7 +29,7 @@ from tifffile import imsave
 
 from denoiseg.models import DenoiSegConfig
 from denoiseg.utils.compute_precision_threshold import isnotebook, compute_labels
-from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper
+from ..internals.DenoiSeg_DataWrapper import DenoiSeg_DataWrapper, DenoiSeg_ValDataWrapper
 from denoiseg.internals.losses import loss_denoiseg, denoiseg_denoise_loss, denoiseg_seg_loss
 from n2v.utils.n2v_utils import pm_identity, pm_normal_additive, pm_normal_fitted, pm_normal_withoutCP, pm_uniform_withCP
 from tqdm import tqdm, tqdm_notebook
@@ -183,7 +185,6 @@ class DenoiSeg(CARE):
 
         means = np.array([float(mean) for mean in self.config.means], ndmin=len(X.shape), dtype=np.float32)
         stds = np.array([float(std) for std in self.config.stds], ndmin=len(X.shape), dtype=np.float32)
-
         X = self.__normalize__(X, means, stds)
         validation_X = self.__normalize__(validation_data[0], means, stds)
 
@@ -199,14 +200,20 @@ class DenoiSeg(CARE):
 
         # validation_Y is also validation_X plus a concatenated masking channel.
         # To speed things up, we precompute the masking vo the validation data.
+
         validation_Y = np.concatenate((validation_X, np.zeros(validation_X.shape, dtype=validation_X.dtype)),
                                       axis=axes.index('C'))
+
         n2v_utils.manipulate_val_data(validation_X, validation_Y,
                                       perc_pix=self.config.n2v_perc_pix,
                                       shape=val_patch_shape,
                                       value_manipulation=manipulator)
 
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
+
+        # validation_data = DenoiSeg_ValDataWrapper(X=validation_X,
+        #                                           Y=validation_Y,
+        #                                           batch_size=self.config.train_batch_size)
 
         history = self.keras_model.fit(training_data, validation_data=(validation_X, validation_Y),
                                                  epochs=epochs, steps_per_epoch=steps_per_epoch,
@@ -384,21 +391,39 @@ class DenoiSeg(CARE):
 
         self._model_prepared = True
 
-    def predict_label_masks(self, X, Y, threshold, measure):
+    def predict_denoised_label_masks(self, X, Y, threshold, measure, axes='YX', n_tiles=None):
+        """
+        :param X: Input images
+        :param Y: Input masks
+        :param axes: Axes, YX for 2d and ZYX for 3d
+        :param threshold: Current threshold step
+        :param measure: Metric
+        :param n_tiles Number of tile to split image into during prediction.
+        None for no split. 4 is enough for most cases in 2D
+        :return: Lists of predictions containing denoised image, masks, score and borders
+        """
+        
+        predicted_denoised = []
         predicted_images = []
         precision_result = []
+        predictions_binary = []
+        
         for i in range(X.shape[0]):
-            if( np.max(Y[i])==0 and np.min(Y[i])==0 ):
+            if (np.max(Y[i])==0 and np.min(Y[i])==0):
                 continue
             else:
-                prediction = self.predict(X[i].astype(np.float32), axes='YX')
-                labels = compute_labels(prediction, threshold)
+                prediction = self.predict(X[i].astype(np.float32), axes=axes, softmax=True, n_tiles=n_tiles)
+                prediction_denoised = prediction[..., :1]
+                labels, prediction_binary = compute_labels(prediction[..., 1:], threshold)
                 tmp_score = measure(Y[i], labels)
+                predicted_denoised.append(prediction_denoised)
                 predicted_images.append(labels)
+                predictions_binary.append(prediction_binary)
                 precision_result.append(tmp_score)
-        return predicted_images, np.mean(precision_result)
+        return predicted_denoised, predicted_images, np.mean(precision_result), predictions_binary
 
-    def optimize_thresholds(self, X_val, Y_val, measure):
+
+    def optimize_thresholds(self, X_val, Y_val, measure, axes='YX'):
         """
          Computes average precision (AP) at different probability thresholds on validation data and returns the best-performing threshold.
 
@@ -426,7 +451,7 @@ class DenoiSeg(CARE):
         else:
             progress_bar = tqdm
         for ts in progress_bar(np.linspace(0.1, 1, 19)):
-            _, score = self.predict_label_masks(X_val, Y_val, ts, measure)
+            _, _, score, _ = self.predict_denoised_label_masks(X_val, Y_val, ts, measure, axes=axes)
             precision_scores.append((ts, score))
             print('Score for threshold =', "{:.2f}".format(ts), 'is', "{:.4f}".format(score))
 
@@ -435,7 +460,8 @@ class DenoiSeg(CARE):
         best_score = sorted_score[1]
         return computed_threshold, best_score
 
-    def predict(self, img, axes, resizer=PadAndCropResizer(), n_tiles=None):
+
+    def predict(self, img, axes, softmax=False, resizer=PadAndCropResizer(), n_tiles=None):
         """
         Apply the network to so far unseen data. 
         Parameters
@@ -468,10 +494,9 @@ class DenoiSeg(CARE):
             normalized = normalized[..., 0]
 
         pred_full = self._predict_mean_and_scale(normalized, axes=new_axes, normalizer=None, resizer=resizer, n_tiles=n_tiles)[0]
-
-        pred_denoised = self.__denormalize__(pred_full[...,:1], means, stds)
-        
-        pred = np.concatenate([pred_denoised, pred_full[...,1:]], axis=-1)
+        pred_denoised = self.__denormalize__(pred_full[..., :self.config.n_channel_in], means, stds)
+        pred_softmax = self._softmax(pred_full[..., self.config.n_channel_in:], softmax)
+        pred = np.concatenate([pred_denoised, pred_softmax], axis=-1)
         
         if 'C' in axes:
             pred = np.moveaxis(pred, -1, axes.index('C'))
@@ -504,26 +529,36 @@ class DenoiSeg(CARE):
             loss_standard = eval('loss_seg(relative_weights=%s)' % self.config.relative_weights)
             _metrics = [loss_standard]
         elif self.config.train_loss == 'denoiseg':
-            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={})'.format(
+            loss_standard = eval('loss_denoiseg(alpha={}, relative_weights={}, n_chan={})'.format(
                 self.config.denoiseg_alpha,
-                self.config.relative_weights))
-            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={})'.format(1-self.config.denoiseg_alpha,
-                                                                                          self.config.relative_weights))
-            denoise_metric = eval('denoiseg_denoise_loss(weight={})'.format(self.config.denoiseg_alpha))
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            seg_metric = eval('denoiseg_seg_loss(weight={}, relative_weights={}, n_chan={})'.format(
+                1-self.config.denoiseg_alpha,
+                self.config.relative_weights,
+                self.config.n_channel_in))
+            denoise_metric = eval('denoiseg_denoise_loss(weight={}, n_chan={})'.format(
+                self.config.denoiseg_alpha,
+                self.config.n_channel_in))
             _metrics = [loss_standard, seg_metric, denoise_metric]
         else:
             _raise('Unknown Loss!')
 
         callbacks = [TerminateOnNaN()]
 
+        # mixed precision
+        # mixed_precision.set_global_policy('mixed_float16')
+
         # compile model
         model.compile(optimizer=optimizer, loss=loss_standard, metrics=_metrics)
 
         return callbacks
 
+    def _softmax(self, x, apply=False):
+        return np.exp(x) / np.sum(np.exp(x), axis=-1)[..., np.newaxis] if apply else x
+
     def __normalize__(self, data, means, stds):
         return (data - means) / stds
-
 
     def __denormalize__(self, data, means, stds):
         return (data * stds) + means
