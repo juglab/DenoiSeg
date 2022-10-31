@@ -4,12 +4,11 @@ from os import path
 
 _dir = path.abspath(path.dirname(__file__))
 
-with open(path.join(_dir,'denoiseg','version.py')) as f:
+with open(path.join(_dir, 'denoiseg', 'version.py')) as f:
     exec(f.read())
 
-with open(path.join(_dir,'README.md')) as f:
+with open(path.join(_dir, 'README.md')) as f:
     long_description = f.read()
-
 
 setup(name='denoiseg',
       version=__version__,
@@ -37,7 +36,7 @@ setup(name='denoiseg',
       ],
 
       install_requires=[
-	      "n2v>=0.3.2",
+          "n2v>=0.3.2",
           "wrapt<=1.12.1",
           "pathlib2;python_version<'3'",
           "backports.tempfile;python_version<'3.4'",
@@ -46,5 +45,8 @@ setup(name='denoiseg',
           "numba",
           "scikit-learn",
           "scikit-image"
-      ]
+      ],
+      extras_require={
+          "testing": ["pytest"]
+      }
       )
