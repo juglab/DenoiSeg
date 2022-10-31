@@ -6,7 +6,7 @@ and Florian Jug<sup>1,2,^</sup>
 <sup>1</sup> Max Planck Institute of Molecular Cell Biology and Genetics, Dresden, Germany <br />
 <sup>2</sup> Center for Systems Biology, Dresden, Germany <br />
 <sup>3</sup> Max Planck Institute for Physics of Complex Systems, Dresden, Germany <br />
-<sup>^</sup> <code>jug@mpi-cbg.de</code> <br />
+<sup>^</sup> <code>florian.jug@fht.org</code> <br />
 <sup>*</sup> Equal contribution (alphabetical order).
 
 Microscopy image analysis often requires the segmentation of objects, 
@@ -31,29 +31,30 @@ of dense segmentations.
 Paper: [https://arxiv.org/abs/2005.02987](https://arxiv.org/abs/2005.02987)
 
 ## Installation
-This implementation requires [Tensorflow](https://www.tensorflow.org/install/).
-We have tested DenoiSeg on LinuxMint 19  using python 3.6 and 3.7 and tensorflow-gpu 1.15.
 
 #### If you start from scratch...
 We recommend using [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 If you do not yet have a strong opinion, just use it too!
 
-After installing Miniconda, the following lines might are likely the easiest way to get Tensorflow and CuDNN installed on your machine (_Note:_ Macs are not supported, and if you sit on a Windows machine all this might also require some modifications.):
+After installing Miniconda, create a conda environment:
 
 ```
-$ conda create -n 'denoiSeg' python=3.7
-$ source activate denoiSeg
-$ conda install cudatoolkit=10.1 cudnn
-$ pip install tensorflow==2.3
-$ pip install jupyter
-$ conda install nb_conda
+conda create -n 'n2v' python=3.9
+conda activate n2v
 ```
 
-Note: it is very important that the version of keras be 2.2.4 or 2.2.5, hence the explicit installation above.
-Once this is done (or you had tensorflow et al. installed already), you can install DenoiSeg with one of the following two options:
+#### Install TensorFlow
 
-#### ~~Option 1: PIP (current stable release)~~
-Currently not working with the previous Conda instructions. If you nonetheless want to use the pip package, set up the Conda environment following [these instructions](https://github.com/juglab/DenoiSeg/tree/2bb8a87a189ef4a1e61d35d86181aedbebc354b3).
+The best way to install TensorFLow is to follow the [Tensorflow guidelines](https://www.tensorflow.org/install/pip). 
+
+Note that, after installing TensorFlow, running the following commands in your environment will allow you to use the GPU without having to each 
+time run an `export` command (refer to the [Tensorflow step by step](https://www.tensorflow.org/install/pip#linux_1)):
+```bash
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+#### Option 1: PIP (current stable release)
 ```
 $ pip install denoiseg
 ```
@@ -62,12 +63,12 @@ $ pip install denoiseg
 This option is ideal if you want to edit the code. Clone the repository:
 
 ```
-$ git clone https://github.com/juglab/DenoiSeg.git
+$ git clone https://github.com/juglab/denoiseg.git
 ```
 Change into its directory and install it:
 
 ```
-$ cd DenoiSeg
+$ cd denoiseg
 $ pip install -e .
 ```
 You are now ready to run DenoiSeg.
