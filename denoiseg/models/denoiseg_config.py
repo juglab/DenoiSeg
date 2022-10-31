@@ -70,17 +70,6 @@ class DenoiSegConfig(argparse.Namespace):
     def __init__(self, X, **kwargs):
         """See class docstring"""
 
-        # means, stds = [], []
-
-        # # Check if X is a list or an array
-        # if isinstance(X, (list, tuple)):
-        #     #TODO finish mean/std calc, needs refactoring
-        #     for im in X:
-        #         for i in range(X[0].shape[-1]):
-        #             means.append(np.mean(im[..., i]))
-        #             stds.append(np.std(im[..., i]))
-        #         X = X[0]
-
         # X is empty if config is None
         if X.size != 0:
             assert len(X.shape) == 4 or len(X.shape) == 5, "Only 'SZYXC' or 'SYXC' as dimensions is supported."

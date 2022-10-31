@@ -209,8 +209,6 @@ class DenoiSeg(CARE):
                                       shape=val_patch_shape,
                                       value_manipulation=manipulator)
 
-        print('val shapes', validation_X.shape, validation_Y.shape)
-
         validation_Y = np.concatenate((validation_Y, validation_data[1]), axis=-1)
 
         # validation_data = DenoiSeg_ValDataWrapper(X=validation_X,
