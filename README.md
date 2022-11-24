@@ -39,8 +39,8 @@ If you do not yet have a strong opinion, just use it too!
 After installing Miniconda, create a conda environment:
 
 ```
-conda create -n 'n2v' python=3.9
-conda activate n2v
+conda create -n 'denoiseg' python=3.9
+conda activate denoiseg
 ```
 
 #### Install TensorFlow
