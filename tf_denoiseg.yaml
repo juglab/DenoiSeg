@@ -5,8 +5,8 @@ channels:
   - defaults
 dependencies:
   - python=3.9
-  - cudatoolkit=11.2
-  - cudnn=8.1.0
+  - cudatoolkit=11.3
+  - cudnn=8.1
   - numpy
   - matplotlib
   - scipy
