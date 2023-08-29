@@ -7,7 +7,7 @@ from tqdm import tqdm, tqdm_notebook
 @jit
 def pixel_sharing_bipartite(lab1, lab2):
     assert lab1.shape == lab2.shape
-    psg = np.zeros((lab1.max() + 1, lab2.max() + 1), dtype=np.int)
+    psg = np.zeros((lab1.max() + 1, lab2.max() + 1), dtype=int)
     for i in range(lab1.size):
         psg[lab1.flat[i], lab2.flat[i]] += 1
     return psg
